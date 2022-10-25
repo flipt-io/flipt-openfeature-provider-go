@@ -16,18 +16,20 @@ import (
 )
 
 const (
-	requestID = "requestID"
-
+	requestID   = "requestID"
 	defaultHost = "localhost"
 	defaultPort = 8080
 )
 
 var _ service.Service = (*Service)(nil)
 
+// Protocol is the protocol to use for the service.
 type Protocol int
 
 const (
+	// HTTP is the http protocol.
 	HTTP Protocol = iota
+	// HTTPS is the https protocol.
 	HTTPS
 )
 
@@ -50,6 +52,7 @@ type errorBody struct {
 	Code  codes.Code `json:"code"`
 }
 
+// Service is a http service.
 type Service struct {
 	client   httpClient
 	host     string
@@ -57,8 +60,10 @@ type Service struct {
 	protocol Protocol
 }
 
+// Option is a service option.
 type Option func(*Service)
 
+// WithHTTPClient sets the HTTP client to use.
 func WithHTTPClient(client httpClient) Option {
 	return func(s *Service) {
 		if client != nil {
@@ -67,24 +72,28 @@ func WithHTTPClient(client httpClient) Option {
 	}
 }
 
+// WithHost sets the host for the service.
 func WithHost(host string) Option {
 	return func(s *Service) {
 		s.host = host
 	}
 }
 
+// WithPort sets the port for the service.
 func WithPort(port uint) Option {
 	return func(s *Service) {
 		s.port = port
 	}
 }
 
+// WithHTTPS sets the service protocol to https.
 func WithHTTPS() Option {
 	return func(s *Service) {
 		s.protocol = HTTPS
 	}
 }
 
+// New creates a new http(s) service.
 func New(opts ...Option) *Service {
 	s := &Service{
 		host:     defaultHost,
@@ -110,6 +119,7 @@ func (s *Service) instance() (httpClient, error) { //nolint
 	return s.client, nil
 }
 
+// GetFlag returns a flag if it exists for the given key.
 func (s *Service) GetFlag(ctx context.Context, flagKey string) (*flipt.Flag, error) {
 	url := fmt.Sprintf("%s://%s:%d/api/v1/flags/%s", s.protocol, s.host, s.port, flagKey)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -167,6 +177,7 @@ func (s *Service) GetFlag(ctx context.Context, flagKey string) (*flipt.Flag, err
 	return nil, fmt.Errorf("getting flag: status=%d %s", resp.StatusCode, string(b))
 }
 
+// Evaluate evaluates a flag with the given context.
 func (s *Service) Evaluate(ctx context.Context, flagKey string, evalCtx map[string]interface{}) (*flipt.EvaluationResponse, error) {
 	if evalCtx == nil {
 		return nil, of.NewInvalidContextResolutionError("evalCtx is nil")

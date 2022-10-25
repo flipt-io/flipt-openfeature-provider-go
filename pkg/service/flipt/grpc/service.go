@@ -33,6 +33,7 @@ type grpcClient interface {
 	Evaluate(ctx context.Context, in *flipt.EvaluationRequest, opts ...grpc.CallOption) (*flipt.EvaluationResponse, error)
 }
 
+// Service is a GRPC service.
 type Service struct {
 	client          grpcClient
 	host            string
@@ -42,8 +43,10 @@ type Service struct {
 	once            sync.Once
 }
 
+// Option is a service option.
 type Option func(*Service)
 
+// WithGRPCClient sets the GRPC client to use.
 func WithGRPCClient(client grpcClient) Option {
 	return func(s *Service) {
 		if client != nil {
@@ -52,30 +55,35 @@ func WithGRPCClient(client grpcClient) Option {
 	}
 }
 
+// WithHost sets the host for the service.
 func WithHost(host string) Option {
 	return func(s *Service) {
 		s.host = host
 	}
 }
 
+// WithPort sets the port for the service.
 func WithPort(port uint) Option {
 	return func(s *Service) {
 		s.port = port
 	}
 }
 
+// WithCertificatePath sets the certificate path for the service.
 func WithCertificatePath(certificatePath string) Option {
 	return func(s *Service) {
 		s.certificatePath = certificatePath
 	}
 }
 
+// WithSocketPath sets the socket path for the service.
 func WithSocketPath(socketPath string) Option {
 	return func(s *Service) {
 		s.socketPath = socketPath
 	}
 }
 
+// New creates a new GRPC service.
 func New(opts ...Option) *Service {
 	s := &Service{
 		host: defaultHost,
@@ -139,6 +147,7 @@ func (s *Service) instance() (grpcClient, error) {
 	return s.client, err
 }
 
+// GetFlag returns a flag if it exists for the given key.
 func (s *Service) GetFlag(ctx context.Context, flagKey string) (*flipt.Flag, error) {
 	conn, err := s.instance()
 	if err != nil {
@@ -158,6 +167,7 @@ func (s *Service) GetFlag(ctx context.Context, flagKey string) (*flipt.Flag, err
 	return f, nil
 }
 
+// Evaluate evaluates a flag with the given context.
 func (s *Service) Evaluate(ctx context.Context, flagKey string, evalCtx map[string]interface{}) (*flipt.EvaluationResponse, error) {
 	if evalCtx == nil {
 		return nil, of.NewInvalidContextResolutionError("evalCtx is nil")

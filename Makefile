@@ -26,4 +26,9 @@ cover:
 	@go test -coverprofile=coverage.out -covermode=atomic ./...
 	@go tool cover -html=coverage.out
 
+doc:
+	@echo "Generating documentation..."
+	@echo "	http://localhost:6060/pkg/github.com/flipt-io/openfeature-provider-go/"
+	@godoc -http=:6060 -goroot .
+
 .DEFAULT_GOAL := build
