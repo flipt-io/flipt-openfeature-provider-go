@@ -20,15 +20,15 @@ func TestServiceType(t *testing.T) {
 	}{
 		{
 			name:        "http",
-			serviceType: ServiceHTTP,
+			serviceType: ServiceTypeHTTP,
 		},
 		{
 			name:        "https",
-			serviceType: ServiceHTTPS,
+			serviceType: ServiceTypeHTTPS,
 		},
 		{
 			name:        "grpc",
-			serviceType: ServiceGRPC,
+			serviceType: ServiceTypeGRPC,
 		},
 		{
 			name:        "unknown",
@@ -59,16 +59,16 @@ func TestNew(t *testing.T) {
 				config: Config{
 					Port:        8080,
 					Host:        "localhost",
-					ServiceType: ServiceHTTP,
+					ServiceType: ServiceTypeHTTP,
 				},
 			},
 		},
 		{
 			name: "with service type",
-			opts: []Option{WithServiceType(ServiceGRPC)},
+			opts: []Option{WithServiceType(ServiceTypeGRPC)},
 			want: want{
 				config: Config{
-					ServiceType: ServiceGRPC,
+					ServiceType: ServiceTypeGRPC,
 					Port:        8080,
 					Host:        "localhost",
 				},
@@ -79,7 +79,7 @@ func TestNew(t *testing.T) {
 			opts: []Option{WithPort(8081)},
 			want: want{
 				config: Config{
-					ServiceType: ServiceHTTP,
+					ServiceType: ServiceTypeHTTP,
 					Port:        8081,
 					Host:        "localhost",
 				},
@@ -90,7 +90,7 @@ func TestNew(t *testing.T) {
 			opts: []Option{WithHost("github.com")},
 			want: want{
 				config: Config{
-					ServiceType: ServiceHTTP,
+					ServiceType: ServiceTypeHTTP,
 					Port:        8080,
 					Host:        "github.com",
 				},
@@ -101,7 +101,7 @@ func TestNew(t *testing.T) {
 			opts: []Option{WithCertificatePath("/path/to/cert")},
 			want: want{
 				config: Config{
-					ServiceType:     ServiceHTTP,
+					ServiceType:     ServiceTypeHTTP,
 					Port:            8080,
 					Host:            "localhost",
 					CertificatePath: "/path/to/cert",
@@ -113,7 +113,7 @@ func TestNew(t *testing.T) {
 			opts: []Option{WithSocketPath("/path/to/socket")},
 			want: want{
 				config: Config{
-					ServiceType: ServiceHTTP,
+					ServiceType: ServiceTypeHTTP,
 					Port:        8080,
 					Host:        "localhost",
 					SocketPath:  "/path/to/socket",
@@ -123,7 +123,7 @@ func TestNew(t *testing.T) {
 		{
 			name: "with config",
 			opts: []Option{WithConfig(Config{
-				ServiceType:     ServiceHTTPS,
+				ServiceType:     ServiceTypeHTTPS,
 				Port:            8081,
 				Host:            "github.com",
 				CertificatePath: "/path/to/cert",
@@ -131,7 +131,7 @@ func TestNew(t *testing.T) {
 			})},
 			want: want{
 				config: Config{
-					ServiceType:     ServiceHTTPS,
+					ServiceType:     ServiceTypeHTTPS,
 					Port:            8081,
 					Host:            "github.com",
 					CertificatePath: "/path/to/cert",
@@ -146,7 +146,7 @@ func TestNew(t *testing.T) {
 				config: Config{
 					Port:        8080,
 					Host:        "localhost",
-					ServiceType: ServiceHTTP,
+					ServiceType: ServiceTypeHTTP,
 				},
 			},
 		},

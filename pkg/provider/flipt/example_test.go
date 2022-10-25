@@ -11,7 +11,7 @@ func Example() {
 	openfeature.SetProvider(flipt.NewProvider(
 		flipt.WithHost("localhost"),
 		flipt.WithPort(9000),
-		flipt.WithServiceType(flipt.ServiceGRPC),
+		flipt.WithServiceType(flipt.ServiceTypeGRPC),
 	))
 
 	client := openfeature.NewClient("my-app")

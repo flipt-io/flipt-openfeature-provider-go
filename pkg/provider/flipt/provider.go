@@ -29,21 +29,21 @@ type Config struct {
 type ServiceType int
 
 const (
-	// ServiceHTTP argument, this is the default value.
-	ServiceHTTP ServiceType = iota + 1
-	// ServiceHTTPS argument, overrides the default value of http.
-	ServiceHTTPS
-	// ServiceGRPC argument, overrides the default value of http.
-	ServiceGRPC
+	// ServiceTypeHTTP argument, this is the default value.
+	ServiceTypeHTTP ServiceType = iota + 1
+	// ServiceTypeHTTPS argument, overrides the default value of http.
+	ServiceTypeHTTPS
+	// ServiceTypeGRPC argument, overrides the default value of http.
+	ServiceTypeGRPC
 )
 
 func (s ServiceType) String() string {
 	switch s {
-	case ServiceHTTP:
+	case ServiceTypeHTTP:
 		return "http"
-	case ServiceHTTPS:
+	case ServiceTypeHTTPS:
 		return "https"
-	case ServiceGRPC:
+	case ServiceTypeGRPC:
 		return "grpc"
 	default:
 		return "unknown"
@@ -107,7 +107,7 @@ func NewProvider(opts ...Option) *Provider {
 	p := &Provider{config: Config{
 		Port:        8080,
 		Host:        "localhost",
-		ServiceType: ServiceHTTP,
+		ServiceType: ServiceTypeHTTP,
 	}}
 
 	for _, opt := range opts {
@@ -116,13 +116,13 @@ func NewProvider(opts ...Option) *Provider {
 
 	if p.svc == nil {
 		switch p.config.ServiceType {
-		case ServiceHTTP:
+		case ServiceTypeHTTP:
 			opts := []serviceHTTP.Option{serviceHTTP.WithHost(p.config.Host), serviceHTTP.WithPort(p.config.Port)}
 			p.svc = serviceHTTP.New(opts...)
-		case ServiceHTTPS:
+		case ServiceTypeHTTPS:
 			opts := []serviceHTTP.Option{serviceHTTP.WithHost(p.config.Host), serviceHTTP.WithPort(p.config.Port), serviceHTTP.WithHTTPS()}
 			p.svc = serviceHTTP.New(opts...)
-		case ServiceGRPC:
+		case ServiceTypeGRPC:
 			opts := []serviceGRPC.Option{serviceGRPC.WithHost(p.config.Host), serviceGRPC.WithPort(p.config.Port), serviceGRPC.WithSocketPath(p.config.SocketPath), serviceGRPC.WithCertificatePath(p.config.CertificatePath)}
 			p.svc = serviceGRPC.New(opts...)
 		}
