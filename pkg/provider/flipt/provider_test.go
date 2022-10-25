@@ -56,7 +56,11 @@ func TestNew(t *testing.T) {
 		{
 			name: "default",
 			want: want{
-				config: DefaultConfig,
+				config: Config{
+					Port:        8080,
+					Host:        "localhost",
+					ServiceType: ServiceHTTP,
+				},
 			},
 		},
 		{
@@ -139,7 +143,11 @@ func TestNew(t *testing.T) {
 			name: "with service",
 			opts: []Option{WithService(&mockService{})},
 			want: want{
-				config: DefaultConfig,
+				config: Config{
+					Port:        8080,
+					Host:        "localhost",
+					ServiceType: ServiceHTTP,
+				},
 			},
 		},
 	}

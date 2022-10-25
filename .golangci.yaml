@@ -17,8 +17,11 @@ linters:
     - exhaustivestruct
     - exhaustruct
     - gci
+    - godox
     - goerr113
+    - gofumpt
     - gomnd
+    - ireturn
     - lll
     - paralleltest
     - varnamelen

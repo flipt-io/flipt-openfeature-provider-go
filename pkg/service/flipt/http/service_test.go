@@ -1,4 +1,4 @@
-package service_http
+package servicehttp
 
 import (
 	"bytes"

@@ -52,9 +52,9 @@ type mockService_Evaluate_Call struct {
 }
 
 // Evaluate is a helper method to define mock.On call
-//  - ctx context.Context
-//  - flagKey string
-//  - evalCtx map[string]interface{}
+//   - ctx context.Context
+//   - flagKey string
+//   - evalCtx map[string]interface{}
 func (_e *mockService_Expecter) Evaluate(ctx interface{}, flagKey interface{}, evalCtx interface{}) *mockService_Evaluate_Call {
 	return &mockService_Evaluate_Call{Call: _e.mock.On("Evaluate", ctx, flagKey, evalCtx)}
 }
@@ -100,8 +100,8 @@ type mockService_GetFlag_Call struct {
 }
 
 // GetFlag is a helper method to define mock.On call
-//  - ctx context.Context
-//  - flagKey string
+//   - ctx context.Context
+//   - flagKey string
 func (_e *mockService_Expecter) GetFlag(ctx interface{}, flagKey interface{}) *mockService_GetFlag_Call {
 	return &mockService_GetFlag_Call{Call: _e.mock.On("GetFlag", ctx, flagKey)}
 }

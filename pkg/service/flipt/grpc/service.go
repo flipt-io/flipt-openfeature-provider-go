@@ -1,4 +1,4 @@
-package service_grpc
+package servicegrpc
 
 import (
 	"context"
@@ -126,6 +126,7 @@ func (s *Service) instance() (grpcClient, error) {
 	}
 
 	var err error
+
 	s.once.Do(func() {
 		conn, cerr := s.connect()
 		if cerr != nil {
@@ -150,6 +151,7 @@ func (s *Service) GetFlag(ctx context.Context, flagKey string) (*flipt.Flag, err
 		if s, ok := status.FromError(err); ok {
 			return nil, grpcToOpenFeatureError(*s)
 		}
+
 		return nil, fmt.Errorf("getting flag %q %w", flagKey, err)
 	}
 
@@ -179,6 +181,7 @@ func (s *Service) Evaluate(ctx context.Context, flagKey string, evalCtx map[stri
 		if s, ok := status.FromError(err); ok {
 			return nil, grpcToOpenFeatureError(*s)
 		}
+
 		return nil, fmt.Errorf("evaluating flag %q %w", flagKey, err)
 	}
 
@@ -188,8 +191,9 @@ func (s *Service) Evaluate(ctx context.Context, flagKey string, evalCtx map[stri
 func convertMapInterface(m map[string]interface{}) map[string]string {
 	ee := make(map[string]string)
 	for k, v := range m {
-		ee[k] = v.(string)
+		ee[k] = fmt.Sprintf("%v", v)
 	}
+
 	return ee
 }
 
@@ -202,6 +206,7 @@ func grpcToOpenFeatureError(s status.Status) of.ResolutionError {
 	case codes.Unavailable:
 		return of.NewProviderNotReadyResolutionError(s.Message())
 	}
+
 	return of.NewGeneralResolutionError(s.Message())
 }
 
@@ -217,7 +222,8 @@ func loadTLSCredentials(serverCertPath string) (credentials.TransportCredentials
 	}
 
 	config := &tls.Config{
-		RootCAs: certPool,
+		RootCAs:    certPool,
+		MinVersion: tls.VersionTLS12,
 	}
 
 	return credentials.NewTLS(config), nil

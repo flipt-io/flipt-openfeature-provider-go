@@ -1,4 +1,4 @@
-package service_http
+package servicehttp
 
 import (
 	"bytes"
@@ -99,19 +99,21 @@ func New(opts ...Option) *Service {
 	return s
 }
 
-// this never returns an error but wanted to make it similar to the grpc service
-func (s *Service) instance() (httpClient, error) {
+// this never returns an error but wanted to make it similar to the grpc service.
+func (s *Service) instance() (httpClient, error) { //nolint
 	if s.client != nil {
 		return s.client, nil
 	}
 
 	s.client = &http.Client{}
+
 	return s.client, nil
 }
 
 func (s *Service) GetFlag(ctx context.Context, flagKey string) (*flipt.Flag, error) {
 	url := fmt.Sprintf("%s://%s:%d/api/v1/flags/%s", s.protocol, s.host, s.port, flagKey)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+
 	if err != nil {
 		return nil, fmt.Errorf("creating request %w", err)
 	}
@@ -133,6 +135,7 @@ func (s *Service) GetFlag(ctx context.Context, flagKey string) (*flipt.Flag, err
 	resp.Body.Close()
 	// reset the body/buffer incase we need to read it again
 	resp.Body = io.NopCloser(bytes.NewBuffer(b))
+
 	if err != nil {
 		return nil, fmt.Errorf("reading response body %w", err)
 	}
@@ -142,6 +145,7 @@ func (s *Service) GetFlag(ctx context.Context, flagKey string) (*flipt.Flag, err
 		if err := json.Unmarshal(b, f); err != nil {
 			return nil, fmt.Errorf("unmarshalling response body %w", err)
 		}
+
 		return f, nil
 	}
 
@@ -189,6 +193,7 @@ func (s *Service) Evaluate(ctx context.Context, flagKey string, evalCtx map[stri
 
 	url := fmt.Sprintf("%s://%s:%d/api/v1/evaluate", s.protocol, s.host, s.port)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(b))
+
 	if err != nil {
 		return nil, fmt.Errorf("creating request %w", err)
 	}
@@ -211,6 +216,7 @@ func (s *Service) Evaluate(ctx context.Context, flagKey string, evalCtx map[stri
 	resp.Body.Close()
 	// reset the body/buffer incase we need to read it again
 	resp.Body = io.NopCloser(bytes.NewBuffer(b))
+
 	if err != nil {
 		return nil, fmt.Errorf("reading response body %w", err)
 	}
@@ -220,6 +226,7 @@ func (s *Service) Evaluate(ctx context.Context, flagKey string, evalCtx map[stri
 		if err := json.Unmarshal(b, e); err != nil {
 			return nil, fmt.Errorf("unmarshalling response body %w", err)
 		}
+
 		return e, nil
 	}
 
@@ -245,7 +252,8 @@ func (s *Service) Evaluate(ctx context.Context, flagKey string, evalCtx map[stri
 func convertMapInterface(m map[string]interface{}) map[string]string {
 	ee := make(map[string]string)
 	for k, v := range m {
-		ee[k] = v.(string)
+		ee[k] = fmt.Sprintf("%v", v)
 	}
+
 	return ee
 }
