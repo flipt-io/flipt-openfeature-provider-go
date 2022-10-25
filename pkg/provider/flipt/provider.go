@@ -57,44 +57,52 @@ func (s ServiceType) String() string {
 	}
 }
 
+// Option is a configuration option for the provider
 type Option func(*Provider)
 
+// WithServiceType is an Option to set the service type
 func WithServiceType(serviceType ServiceType) Option {
 	return func(p *Provider) {
 		p.config.ServiceType = serviceType
 	}
 }
 
+// WithPort is an Option to set the port.
 func WithPort(port uint) Option {
 	return func(p *Provider) {
 		p.config.Port = port
 	}
 }
 
+// WithHost is an Option to set the host.
 func WithHost(host string) Option {
 	return func(p *Provider) {
 		p.config.Host = host
 	}
 }
 
+// WithCertificatePath is an Option to set the certificate path (grpc only).
 func WithCertificatePath(certificatePath string) Option {
 	return func(p *Provider) {
 		p.config.CertificatePath = certificatePath
 	}
 }
 
+// WithSocketPath is an Option to set the socket path (grpc only).
 func WithSocketPath(socketPath string) Option {
 	return func(p *Provider) {
 		p.config.SocketPath = socketPath
 	}
 }
 
+// WithConfig is an Option to set the entire configuration.
 func WithConfig(config Config) Option {
 	return func(p *Provider) {
 		p.config = config
 	}
 }
 
+// WithService is an Option to override the service implementation.
 func WithService(svc service.Service) Option {
 	return func(p *Provider) {
 		p.svc = svc

@@ -13,6 +13,10 @@ generate:
 	@echo "Generating..."
 	@go generate ./...
 
+lint:
+	@echo "Linting..."
+	@golangci-lint run
+
 test:
 	@echo "Testing..."
 	@go test -v -coverprofile=coverage.out -covermode=atomic ./...

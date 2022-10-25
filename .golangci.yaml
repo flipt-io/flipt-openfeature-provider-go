@@ -1,0 +1,24 @@
+run:
+  tests: false
+
+linters:
+  # https://golangci-lint.run/usage/linters
+  presets:
+    - bugs
+    - comment
+    - error
+    - format
+    - import
+    - metalinter
+    - style
+    - unused
+  disable:
+    - exhaustive
+    - exhaustivestruct
+    - exhaustruct
+    - gci
+    - goerr113
+    - gomnd
+    - lll
+    - paralleltest
+    - varnamelen
