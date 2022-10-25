@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 
+	"google.golang.org/protobuf/encoding/protojson"
+
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
 	"google.golang.org/grpc/codes"
 
@@ -152,7 +154,7 @@ func (s *Service) GetFlag(ctx context.Context, flagKey string) (*flipt.Flag, err
 
 	if resp.StatusCode == http.StatusOK {
 		f := &flipt.Flag{}
-		if err := json.Unmarshal(b, f); err != nil {
+		if err := protojson.Unmarshal(b, f); err != nil {
 			return nil, fmt.Errorf("unmarshalling response body %w", err)
 		}
 
@@ -234,7 +236,7 @@ func (s *Service) Evaluate(ctx context.Context, flagKey string, evalCtx map[stri
 
 	if resp.StatusCode == http.StatusOK {
 		e := &flipt.EvaluationResponse{}
-		if err := json.Unmarshal(b, e); err != nil {
+		if err := protojson.Unmarshal(b, e); err != nil {
 			return nil, fmt.Errorf("unmarshalling response body %w", err)
 		}
 

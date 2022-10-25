@@ -16,12 +16,9 @@ func Example() {
 
 	client := openfeature.NewClient("my-app")
 	value, err := client.BooleanValue(
-		context.Background(), "v2_enabled", false, openfeature.EvaluationContext{
-			TargetingKey: "tim@apple.com",
-			Attributes: map[string]interface{}{
-				"favorite_color": "blue",
-			},
-		},
+		context.Background(), "v2_enabled", false, openfeature.NewEvaluationContext("tim@apple.com", map[string]interface{}{
+			"favorite_color": "blue",
+		}),
 	)
 
 	if err != nil {

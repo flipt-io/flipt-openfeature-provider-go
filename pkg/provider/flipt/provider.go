@@ -2,7 +2,6 @@ package flipt
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -12,6 +11,8 @@ import (
 	serviceHTTP "github.com/flipt-io/openfeature-provider-go/pkg/service/flipt/http"
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
 	"go.flipt.io/flipt-grpc"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 var _ of.FeatureProvider = (*Provider)(nil)
@@ -174,17 +175,69 @@ func (p Provider) BooleanEvaluation(ctx context.Context, flag string, defaultVal
 
 	if !f.Enabled {
 		return of.BoolResolutionDetail{
-			Value: false,
+			Value: defaultValue,
 			ProviderResolutionDetail: of.ProviderResolutionDetail{
 				Reason: of.DisabledReason,
 			},
 		}
 	}
 
+	resp, err := p.svc.Evaluate(ctx, flag, evalCtx)
+	if err != nil {
+		var (
+			rerr   of.ResolutionError
+			detail = of.BoolResolutionDetail{
+				Value: defaultValue,
+				ProviderResolutionDetail: of.ProviderResolutionDetail{
+					Reason: of.DefaultReason,
+				},
+			}
+		)
+
+		if errors.As(err, &rerr) {
+			detail.ProviderResolutionDetail.ResolutionError = rerr
+
+			return detail
+		}
+
+		detail.ProviderResolutionDetail.ResolutionError = of.NewGeneralResolutionError(err.Error())
+
+		return detail
+	}
+
+	if !resp.Match {
+		return of.BoolResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: of.ProviderResolutionDetail{
+				Reason: of.DefaultReason,
+			},
+		}
+	}
+
+	if resp.Value != "" {
+		bv, err := strconv.ParseBool(resp.Value)
+		if err != nil {
+			return of.BoolResolutionDetail{
+				Value: defaultValue,
+				ProviderResolutionDetail: of.ProviderResolutionDetail{
+					ResolutionError: of.NewTypeMismatchResolutionError("value is not a boolean"),
+					Reason:          of.DefaultReason,
+				},
+			}
+		}
+
+		return of.BoolResolutionDetail{
+			Value: bv,
+			ProviderResolutionDetail: of.ProviderResolutionDetail{
+				Reason: of.DefaultReason,
+			},
+		}
+	}
+
 	return of.BoolResolutionDetail{
-		Value: f.Enabled,
+		Value: true,
 		ProviderResolutionDetail: of.ProviderResolutionDetail{
-			Reason: of.TargetingMatchReason,
+			Reason: of.DefaultReason,
 		},
 	}
 }
@@ -230,6 +283,15 @@ func (p Provider) StringEvaluation(ctx context.Context, flag string, defaultValu
 		detail.ProviderResolutionDetail.ResolutionError = of.NewGeneralResolutionError(err.Error())
 
 		return detail
+	}
+
+	if !resp.Match {
+		return of.StringResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: of.ProviderResolutionDetail{
+				Reason: of.DefaultReason,
+			},
+		}
 	}
 
 	return of.StringResolutionDetail{
@@ -283,13 +345,22 @@ func (p Provider) FloatEvaluation(ctx context.Context, flag string, defaultValue
 		return detail
 	}
 
+	if !resp.Match {
+		return of.FloatResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: of.ProviderResolutionDetail{
+				Reason: of.DefaultReason,
+			},
+		}
+	}
+
 	fv, err := strconv.ParseFloat(resp.Value, 64)
 	if err != nil {
 		return of.FloatResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: of.ProviderResolutionDetail{
 				ResolutionError: of.NewTypeMismatchResolutionError("value is not a float"),
-				Reason:          of.DefaultReason,
+				Reason:          of.ErrorReason,
 			},
 		}
 	}
@@ -345,13 +416,22 @@ func (p Provider) IntEvaluation(ctx context.Context, flag string, defaultValue i
 		return detail
 	}
 
+	if !resp.Match {
+		return of.IntResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: of.ProviderResolutionDetail{
+				Reason: of.DefaultReason,
+			},
+		}
+	}
+
 	iv, err := strconv.ParseInt(resp.Value, 10, 64)
 	if err != nil {
 		return of.IntResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: of.ProviderResolutionDetail{
 				ResolutionError: of.NewTypeMismatchResolutionError("value is not an integer"),
-				Reason:          of.DefaultReason,
+				Reason:          of.ErrorReason,
 			},
 		}
 	}
@@ -407,19 +487,38 @@ func (p Provider) ObjectEvaluation(ctx context.Context, flag string, defaultValu
 		return detail
 	}
 
-	out := make(map[string]interface{})
-	if err := json.Unmarshal([]byte(resp.Attachment), &out); err != nil {
+	if !resp.Match {
+		return of.InterfaceResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: of.ProviderResolutionDetail{
+				Reason: of.DefaultReason,
+			},
+		}
+	}
+
+	if resp.Attachment == "" {
+		return of.InterfaceResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: of.ProviderResolutionDetail{
+				Reason:  of.DefaultReason,
+				Variant: resp.Value,
+			},
+		}
+	}
+
+	out := new(structpb.Struct)
+	if err := protojson.Unmarshal([]byte(resp.Attachment), out); err != nil {
 		return of.InterfaceResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: of.ProviderResolutionDetail{
 				ResolutionError: of.NewTypeMismatchResolutionError(fmt.Sprintf("value is not an object: %q", resp.Attachment)),
-				Reason:          of.DefaultReason,
+				Reason:          of.ErrorReason,
 			},
 		}
 	}
 
 	return of.InterfaceResolutionDetail{
-		Value: out,
+		Value: out.AsMap(),
 		ProviderResolutionDetail: of.ProviderResolutionDetail{
 			Reason:  of.TargetingMatchReason,
 			Variant: resp.Value,

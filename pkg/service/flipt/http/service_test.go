@@ -115,13 +115,13 @@ func TestGetFlag(t *testing.T) {
 			name:         "flag not found",
 			responseBody: []byte(`{"error":"flag not found","code":5}`),
 			responseCode: http.StatusNotFound,
-			expectedErr:  of.NewFlagNotFoundResolutionError("flag 'foo' not found"),
+			expectedErr:  of.NewFlagNotFoundResolutionError(`flag "foo" not found`),
 		},
 		{
 			name:         "invalid json",
 			responseBody: []byte(`{"invalid}`),
 			responseCode: http.StatusOK,
-			expectedErr:  errors.New("unmarshalling response body unexpected end of JSON input"),
+			expectedErr:  errors.New("unmarshalling response body"),
 		},
 		{
 			name:        "request error",
@@ -156,10 +156,13 @@ func TestGetFlag(t *testing.T) {
 
 			actual, err := s.GetFlag(context.Background(), "foo")
 			if tt.expectedErr != nil {
-				assert.EqualError(t, err, tt.expectedErr.Error())
+				assert.ErrorContains(t, err, tt.expectedErr.Error())
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, actual)
+				assert.Equal(t, tt.expected.Key, actual.Key)
+				assert.Equal(t, tt.expected.Name, actual.Name)
+				assert.Equal(t, tt.expected.Description, actual.Description)
+				assert.Equal(t, tt.expected.Enabled, actual.Enabled)
 			}
 		})
 	}
@@ -187,13 +190,13 @@ func TestEvaluate(t *testing.T) {
 			name:         "flag not found",
 			responseBody: []byte(`{"error":"flag not found","code":5}`),
 			responseCode: http.StatusNotFound,
-			expectedErr:  of.NewFlagNotFoundResolutionError("flag 'foo' not found"),
+			expectedErr:  of.NewFlagNotFoundResolutionError(`flag "foo" not found`),
 		},
 		{
 			name:         "invalid json",
 			responseBody: []byte(`{"invalid}`),
 			responseCode: http.StatusOK,
-			expectedErr:  errors.New("unmarshalling response body unexpected end of JSON input"),
+			expectedErr:  errors.New("unmarshalling response body"),
 		},
 		{
 			name:        "request error",
@@ -233,10 +236,12 @@ func TestEvaluate(t *testing.T) {
 
 			actual, err := s.Evaluate(context.Background(), "foo", evalCtx)
 			if tt.expectedErr != nil {
-				assert.EqualError(t, err, tt.expectedErr.Error())
+				assert.ErrorContains(t, err, tt.expectedErr.Error())
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, actual)
+				assert.Equal(t, tt.expected.FlagKey, actual.FlagKey)
+				assert.Equal(t, tt.expected.Match, actual.Match)
+				assert.Equal(t, tt.expected.SegmentKey, actual.SegmentKey)
 			}
 		})
 	}
