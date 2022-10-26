@@ -61,3 +61,69 @@ func main() {
     }
 }
 ```
+
+## Configuration
+
+The Flipt provider allows you to configure communication with Flipt over either HTTP(S) or GRPC, depending on your preference and network configuration.
+
+### HTTP
+
+```go
+provider := flipt.NewProvider(
+    flipt.WithHost("localhost"),
+    flipt.WithPort(8080),
+)
+```
+
+### HTTPS
+
+```go
+provider := flipt.NewProvider(
+    flipt.WithHost("localhost"),
+    flipt.WithPort(443),
+    flipt.WithServiceType(flipt.ServiceTypeHTTPS),
+)
+```
+
+### GRPC
+
+```go
+provider := flipt.NewProvider(
+    flipt.WithHost("localhost"),
+    flipt.WithPort(9000),
+    flipt.WithServiceType(flipt.ServiceTypeGRPC),
+    flipt.WithCertificatePath("/path/to/cert.pem"), // optional
+    flipt.WithSocketPath("/path/to/socket"), // optional
+)
+```
+
+### Customization
+
+You can also set the `Service` manually in the provider if you want to use a custom implementation of the `Service` interface (or other configuration of the existing Services):
+
+```go
+svc := servicehttp.New(
+    servicehttp.WithHost("localhost"),
+    servicehttp.WithPort(8080),
+)
+
+provider := flipt.NewProvider(
+    flipt.WithService(svc),
+)
+```
+
+This also lets you override the `HTTPClient` or `GRPCClient` if you want to customize the underlying transport:
+
+```go
+svc := servicehttp.New(
+    servicehttp.WithHost("localhost"),
+    servicehttp.WithPort(8080),
+    servicehttp.WithHTTPClient(&http.Client{
+        Timeout: 5 * time.Second,
+    }),
+)
+
+provider := flipt.NewProvider(
+    flipt.WithService(svc),
+)
+```

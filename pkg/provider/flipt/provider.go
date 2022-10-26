@@ -8,22 +8,15 @@ import (
 	"strconv"
 
 	service "github.com/flipt-io/openfeature-provider-go/pkg/service/flipt"
-	service_grpc "github.com/flipt-io/openfeature-provider-go/pkg/service/flipt/grpc"
-	service_http "github.com/flipt-io/openfeature-provider-go/pkg/service/flipt/http"
+	serviceGRPC "github.com/flipt-io/openfeature-provider-go/pkg/service/flipt/grpc"
+	serviceHTTP "github.com/flipt-io/openfeature-provider-go/pkg/service/flipt/http"
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
 	"go.flipt.io/flipt-grpc"
 )
 
 var _ of.FeatureProvider = (*Provider)(nil)
 
-// DefaultConfig is the default configuration for the provider
-var DefaultConfig = Config{
-	Port:        8080,
-	Host:        "localhost",
-	ServiceType: ServiceHTTP,
-}
-
-// Config is a configuration for the FliptProvider
+// Config is a configuration for the FliptProvider.
 type Config struct {
 	ServiceType     ServiceType
 	Port            uint
@@ -32,77 +25,90 @@ type Config struct {
 	SocketPath      string
 }
 
-// ServiceType is the type of service
+// ServiceType is the type of service.
 type ServiceType int
 
 const (
-	// ServiceHTTP argument, this is the default value
-	ServiceHTTP ServiceType = iota + 1
-	// ServiceHTTPS argument, overrides the default value of http
-	ServiceHTTPS
-	// ServiceGRPC argument, overrides the default value of http
-	ServiceGRPC
+	// ServiceTypeHTTP argument, this is the default value.
+	ServiceTypeHTTP ServiceType = iota + 1
+	// ServiceTypeHTTPS argument, overrides the default value of http.
+	ServiceTypeHTTPS
+	// ServiceTypeGRPC argument, overrides the default value of http.
+	ServiceTypeGRPC
 )
 
 func (s ServiceType) String() string {
 	switch s {
-	case ServiceHTTP:
+	case ServiceTypeHTTP:
 		return "http"
-	case ServiceHTTPS:
+	case ServiceTypeHTTPS:
 		return "https"
-	case ServiceGRPC:
+	case ServiceTypeGRPC:
 		return "grpc"
 	default:
 		return "unknown"
 	}
 }
 
+// Option is a configuration option for the provider.
 type Option func(*Provider)
 
+// WithServiceType is an Option to set the service type.
 func WithServiceType(serviceType ServiceType) Option {
 	return func(p *Provider) {
 		p.config.ServiceType = serviceType
 	}
 }
 
+// WithPort is an Option to set the port.
 func WithPort(port uint) Option {
 	return func(p *Provider) {
 		p.config.Port = port
 	}
 }
 
+// WithHost is an Option to set the host.
 func WithHost(host string) Option {
 	return func(p *Provider) {
 		p.config.Host = host
 	}
 }
 
+// WithCertificatePath is an Option to set the certificate path (grpc only).
 func WithCertificatePath(certificatePath string) Option {
 	return func(p *Provider) {
 		p.config.CertificatePath = certificatePath
 	}
 }
 
+// WithSocketPath is an Option to set the socket path (grpc only).
 func WithSocketPath(socketPath string) Option {
 	return func(p *Provider) {
 		p.config.SocketPath = socketPath
 	}
 }
 
+// WithConfig is an Option to set the entire configuration.
 func WithConfig(config Config) Option {
 	return func(p *Provider) {
 		p.config = config
 	}
 }
 
+// WithService is an Option to override the service implementation.
 func WithService(svc service.Service) Option {
 	return func(p *Provider) {
 		p.svc = svc
 	}
 }
 
+// NewProvider returns a new Flipt provider.
 func NewProvider(opts ...Option) *Provider {
-	p := &Provider{config: DefaultConfig}
+	p := &Provider{config: Config{
+		Port:        8080,
+		Host:        "localhost",
+		ServiceType: ServiceTypeHTTP,
+	}}
 
 	for _, opt := range opts {
 		opt(p)
@@ -110,28 +116,28 @@ func NewProvider(opts ...Option) *Provider {
 
 	if p.svc == nil {
 		switch p.config.ServiceType {
-		case ServiceHTTP:
-			opts := []service_http.Option{service_http.WithHost(p.config.Host), service_http.WithPort(p.config.Port)}
-			p.svc = service_http.New(opts...)
-		case ServiceHTTPS:
-			opts := []service_http.Option{service_http.WithHost(p.config.Host), service_http.WithPort(p.config.Port), service_http.WithHTTPS()}
-			p.svc = service_http.New(opts...)
-		case ServiceGRPC:
-			opts := []service_grpc.Option{service_grpc.WithHost(p.config.Host), service_grpc.WithPort(p.config.Port), service_grpc.WithSocketPath(p.config.SocketPath), service_grpc.WithCertificatePath(p.config.CertificatePath)}
-			p.svc = service_grpc.New(opts...)
+		case ServiceTypeHTTP:
+			opts := []serviceHTTP.Option{serviceHTTP.WithHost(p.config.Host), serviceHTTP.WithPort(p.config.Port)}
+			p.svc = serviceHTTP.New(opts...)
+		case ServiceTypeHTTPS:
+			opts := []serviceHTTP.Option{serviceHTTP.WithHost(p.config.Host), serviceHTTP.WithPort(p.config.Port), serviceHTTP.WithHTTPS()}
+			p.svc = serviceHTTP.New(opts...)
+		case ServiceTypeGRPC:
+			opts := []serviceGRPC.Option{serviceGRPC.WithHost(p.config.Host), serviceGRPC.WithPort(p.config.Port), serviceGRPC.WithSocketPath(p.config.SocketPath), serviceGRPC.WithCertificatePath(p.config.CertificatePath)}
+			p.svc = serviceGRPC.New(opts...)
 		}
 	}
 
 	return p
 }
 
-// Provider implements the FeatureProvider interface and provides functions for evaluating flags with Provider
+// Provider implements the FeatureProvider interface and provides functions for evaluating flags with Flipt.
 type Provider struct {
 	svc    service.Service
 	config Config
 }
 
-// Metadata returns the metadata of the provider
+// Metadata returns the metadata of the provider.
 func (p Provider) Metadata() of.Metadata {
 	return of.Metadata{Name: "flipt-provider"}
 }
@@ -144,19 +150,19 @@ func (p Provider) getFlag(ctx context.Context, flag string) (*flipt.Flag, of.Pro
 			return nil, of.ProviderResolutionDetail{
 				ResolutionError: rerr,
 				Reason:          of.DefaultReason,
-			}, err
+			}, rerr
 		}
 
 		return nil, of.ProviderResolutionDetail{
 			ResolutionError: of.NewGeneralResolutionError(err.Error()),
 			Reason:          of.DefaultReason,
-		}, err
+		}, fmt.Errorf("failed to get flag: %w", err)
 	}
 
 	return f, of.ProviderResolutionDetail{}, nil
 }
 
-// BooleanEvaluation returns a boolean flag
+// BooleanEvaluation returns a boolean flag.
 func (p Provider) BooleanEvaluation(ctx context.Context, flag string, defaultValue bool, evalCtx of.FlattenedContext) of.BoolResolutionDetail {
 	f, res, err := p.getFlag(ctx, flag)
 	if err != nil {
@@ -183,7 +189,7 @@ func (p Provider) BooleanEvaluation(ctx context.Context, flag string, defaultVal
 	}
 }
 
-// StringEvaluation returns a string flag
+// StringEvaluation returns a string flag.
 func (p Provider) StringEvaluation(ctx context.Context, flag string, defaultValue string, evalCtx of.FlattenedContext) of.StringResolutionDetail {
 	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
 	f, res, err := p.getFlag(ctx, flag)
@@ -217,10 +223,12 @@ func (p Provider) StringEvaluation(ctx context.Context, flag string, defaultValu
 
 		if errors.As(err, &rerr) {
 			detail.ProviderResolutionDetail.ResolutionError = rerr
+
 			return detail
 		}
 
 		detail.ProviderResolutionDetail.ResolutionError = of.NewGeneralResolutionError(err.Error())
+
 		return detail
 	}
 
@@ -232,7 +240,7 @@ func (p Provider) StringEvaluation(ctx context.Context, flag string, defaultValu
 	}
 }
 
-// FloatEvaluation returns a float flag
+// FloatEvaluation returns a float flag.
 func (p Provider) FloatEvaluation(ctx context.Context, flag string, defaultValue float64, evalCtx of.FlattenedContext) of.FloatResolutionDetail {
 	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
 	f, res, err := p.getFlag(ctx, flag)
@@ -266,10 +274,12 @@ func (p Provider) FloatEvaluation(ctx context.Context, flag string, defaultValue
 
 		if errors.As(err, &rerr) {
 			detail.ProviderResolutionDetail.ResolutionError = rerr
+
 			return detail
 		}
 
 		detail.ProviderResolutionDetail.ResolutionError = of.NewGeneralResolutionError(err.Error())
+
 		return detail
 	}
 
@@ -292,7 +302,7 @@ func (p Provider) FloatEvaluation(ctx context.Context, flag string, defaultValue
 	}
 }
 
-// IntEvaluation returns an int flag
+// IntEvaluation returns an int flag.
 func (p Provider) IntEvaluation(ctx context.Context, flag string, defaultValue int64, evalCtx of.FlattenedContext) of.IntResolutionDetail {
 	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
 	f, res, err := p.getFlag(ctx, flag)
@@ -326,10 +336,12 @@ func (p Provider) IntEvaluation(ctx context.Context, flag string, defaultValue i
 
 		if errors.As(err, &rerr) {
 			detail.ProviderResolutionDetail.ResolutionError = rerr
+
 			return detail
 		}
 
 		detail.ProviderResolutionDetail.ResolutionError = of.NewGeneralResolutionError(err.Error())
+
 		return detail
 	}
 
@@ -386,10 +398,12 @@ func (p Provider) ObjectEvaluation(ctx context.Context, flag string, defaultValu
 
 		if errors.As(err, &rerr) {
 			detail.ProviderResolutionDetail.ResolutionError = rerr
+
 			return detail
 		}
 
 		detail.ProviderResolutionDetail.ResolutionError = of.NewGeneralResolutionError(err.Error())
+
 		return detail
 	}
 
@@ -413,7 +427,7 @@ func (p Provider) ObjectEvaluation(ctx context.Context, flag string, defaultValu
 	}
 }
 
-// Hooks returns hooks
+// Hooks returns hooks.
 func (p Provider) Hooks() []of.Hook {
 	// code to retrieve hooks
 	return []of.Hook{}

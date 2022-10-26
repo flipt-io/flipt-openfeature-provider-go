@@ -41,7 +41,7 @@ jobs:
           cache: true
 
       - name: Run tests
-        run: make test
+        run: go test -v -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v3
