@@ -4,7 +4,6 @@ go 1.19
 
 require (
 	github.com/cucumber/godog v0.12.5
-	github.com/golang/protobuf v1.5.2
 	github.com/open-feature/go-sdk v1.0.0
 	github.com/stretchr/testify v1.8.0
 	go.flipt.io/flipt-grpc v1.1.0
@@ -18,6 +17,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
+	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.3 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-memdb v1.3.0 // indirect
