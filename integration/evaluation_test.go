@@ -677,7 +677,7 @@ func TestFeatures(t *testing.T) {
 		Options: &godog.Options{
 			Format:   "pretty",
 			Paths:    []string{"../test-harness/features"},
-			TestingT: t, // Testing instance that will run subtests.
+			TestingT: t,
 		},
 	}
 
