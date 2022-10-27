@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"strconv"
 
-	service "github.com/flipt-io/openfeature-provider-go/pkg/service/flipt"
-	serviceGRPC "github.com/flipt-io/openfeature-provider-go/pkg/service/flipt/grpc"
-	serviceHTTP "github.com/flipt-io/openfeature-provider-go/pkg/service/flipt/http"
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
 	"go.flipt.io/flipt-grpc"
+	service "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt"
+	serviceGRPC "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt/grpc"
+	serviceHTTP "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt/http"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 )

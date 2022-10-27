@@ -23,7 +23,7 @@ From the [OpenFeature Specification](https://docs.openfeature.dev/docs/specifica
 ### Installation
 
 ```bash
-go get github.com/flipt-io/openfeature-provider-go
+go get go.flipt.io/flipt-openfeature-provider
 ```
 
 ### Example
@@ -34,7 +34,7 @@ package main
 import (
     "context"
 
-    "github.com/flipt-io/openfeature-provider-go/pkg/provider/flipt"
+    "go.flipt.io/flipt-openfeature-provider/pkg/provider/flipt"
     "github.com/open-feature/go-sdk/pkg/openfeature"
 )
 
