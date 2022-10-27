@@ -3,8 +3,8 @@ package flipt_test
 import (
 	"context"
 
-	"go.flipt.io/flipt-openfeature-provider/pkg/provider/flipt"
 	"github.com/open-feature/go-sdk/pkg/openfeature"
+	"go.flipt.io/flipt-openfeature-provider/pkg/provider/flipt"
 )
 
 func Example() {

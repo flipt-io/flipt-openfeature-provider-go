@@ -6,11 +6,11 @@ import (
 	"errors"
 	"testing"
 
-	service "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt"
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.flipt.io/flipt-grpc"
+	service "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt"
 )
 
 func TestServiceType(t *testing.T) {
