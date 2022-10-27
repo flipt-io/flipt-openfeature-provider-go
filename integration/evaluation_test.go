@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/flipt-io/openfeature-provider-go/pkg/provider/flipt"
+	"go.flipt.io/flipt-openfeature-provider/pkg/provider/flipt"
 	"github.com/open-feature/go-sdk/pkg/openfeature"
 
 	"github.com/cucumber/godog"

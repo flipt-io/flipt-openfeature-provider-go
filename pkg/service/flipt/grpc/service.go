@@ -8,7 +8,7 @@ import (
 	"os"
 	"sync"
 
-	service "github.com/flipt-io/openfeature-provider-go/pkg/service/flipt"
+	service "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt"
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
 	"go.flipt.io/flipt-grpc"
 	"google.golang.org/grpc"

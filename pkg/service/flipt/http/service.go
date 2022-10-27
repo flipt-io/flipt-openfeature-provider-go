@@ -13,7 +13,7 @@ import (
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
 	"google.golang.org/grpc/codes"
 
-	service "github.com/flipt-io/openfeature-provider-go/pkg/service/flipt"
+	service "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt"
 	"go.flipt.io/flipt-grpc"
 )
 

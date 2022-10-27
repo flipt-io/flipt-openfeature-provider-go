@@ -1,4 +1,4 @@
-module github.com/flipt-io/openfeature-provider-go
+module go.flipt.io/flipt-openfeature-provider
 
 go 1.19
 
