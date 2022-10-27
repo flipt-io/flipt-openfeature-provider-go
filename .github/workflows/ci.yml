@@ -26,13 +26,21 @@ jobs:
           skip-pkg-cache: true
           skip-build-cache: true
           args: --timeout=10m
+
   test:
     name: Test
     runs-on: ubuntu-latest
+
+    services:
+      flipt:
+        image: ghcr.io/flipt-io/openfeature-testbed:latest
+        ports:
+          - 8080:8080
+
     steps:
       - uses: actions/checkout@v3
         with:
-          fetch-depth: 2
+          submodules: recursive
 
       - uses: actions/setup-go@v3
         with:

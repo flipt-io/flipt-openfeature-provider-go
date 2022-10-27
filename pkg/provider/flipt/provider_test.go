@@ -169,12 +169,14 @@ func TestMetadata(t *testing.T) {
 
 func TestBooleanEvaluation(t *testing.T) {
 	tests := []struct {
-		name            string
-		flagKey         string
-		defaultValue    bool
-		mockRespFlag    *flipt.Flag
-		mockRespFlagErr error
-		expected        of.BoolResolutionDetail
+		name                  string
+		flagKey               string
+		defaultValue          bool
+		mockRespFlag          *flipt.Flag
+		mockRespFlagErr       error
+		mockRespEvaluation    *flipt.EvaluationResponse
+		mockRespEvaluationErr error
+		expected              of.BoolResolutionDetail
 	}{
 		{
 			name:         "true",
@@ -184,7 +186,11 @@ func TestBooleanEvaluation(t *testing.T) {
 				Key:     "boolean-true",
 				Enabled: true,
 			},
-			expected: of.BoolResolutionDetail{Value: true, ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.TargetingMatchReason}},
+			mockRespEvaluation: &flipt.EvaluationResponse{
+				FlagKey: "boolean-true",
+				Match:   true,
+			},
+			expected: of.BoolResolutionDetail{Value: true, ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.DefaultReason}},
 		},
 		{
 			name:         "false",
@@ -194,7 +200,11 @@ func TestBooleanEvaluation(t *testing.T) {
 				Key:     "boolean-false",
 				Enabled: false,
 			},
-			expected: of.BoolResolutionDetail{Value: false, ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.DisabledReason}},
+			mockRespEvaluation: &flipt.EvaluationResponse{
+				FlagKey: "boolean-true",
+				Match:   false,
+			},
+			expected: of.BoolResolutionDetail{Value: true, ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.DisabledReason}},
 		},
 		{
 			name:            "flag not found",
@@ -241,6 +251,7 @@ func TestBooleanEvaluation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockSvc := newMockService(t)
 			mockSvc.On("GetFlag", mock.Anything, tt.flagKey).Return(tt.mockRespFlag, tt.mockRespFlagErr)
+			mockSvc.On("Evaluate", mock.Anything, tt.flagKey, mock.Anything).Return(tt.mockRespEvaluation, tt.mockRespEvaluationErr).Maybe()
 
 			p := NewProvider(WithService(mockSvc))
 			actual := p.BooleanEvaluation(context.Background(), tt.flagKey, tt.defaultValue, map[string]interface{}{})
@@ -431,7 +442,7 @@ func TestFloatEvaluation(t *testing.T) {
 			expected: of.FloatResolutionDetail{
 				Value: 1.0,
 				ProviderResolutionDetail: of.ProviderResolutionDetail{
-					Reason:          of.DefaultReason,
+					Reason:          of.ErrorReason,
 					ResolutionError: of.NewTypeMismatchResolutionError("value is not a float"),
 				},
 			},
@@ -551,7 +562,7 @@ func TestIntEvaluation(t *testing.T) {
 			expected: of.IntResolutionDetail{
 				Value: 1,
 				ProviderResolutionDetail: of.ProviderResolutionDetail{
-					Reason:          of.DefaultReason,
+					Reason:          of.ErrorReason,
 					ResolutionError: of.NewTypeMismatchResolutionError("value is not an integer"),
 				},
 			},
@@ -698,7 +709,7 @@ func TestObjectEvaluation(t *testing.T) {
 					"baz": "qux",
 				},
 				ProviderResolutionDetail: of.ProviderResolutionDetail{
-					Reason:          of.DefaultReason,
+					Reason:          of.ErrorReason,
 					ResolutionError: of.NewTypeMismatchResolutionError("value is not an object: \"x\""),
 				},
 			},
@@ -735,7 +746,7 @@ func TestObjectEvaluation(t *testing.T) {
 			p := NewProvider(WithService(mockSvc))
 			actual := p.ObjectEvaluation(context.Background(), tt.flagKey, tt.defaultValue, map[string]interface{}{})
 
-			assert.Equal(t, tt.expected, actual)
+			assert.Equal(t, tt.expected.Value, actual.Value)
 		})
 	}
 }
