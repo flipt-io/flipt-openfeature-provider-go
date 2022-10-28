@@ -167,6 +167,21 @@ func TestMetadata(t *testing.T) {
 	assert.Equal(t, "flipt-provider", p.Metadata().Name)
 }
 
+func TestGetFlag_GeneralError(t *testing.T) {
+	mockSvc := newMockService(t)
+	mockSvc.On("GetFlag", mock.Anything, mock.Anything).Return(nil, errors.New("boom"))
+
+	p := NewProvider(WithService(mockSvc))
+	got, detail, err := p.getFlag(context.Background(), "get-flag-error")
+
+	assert.Nil(t, got)
+	assert.Equal(t, detail, of.ProviderResolutionDetail{
+		ResolutionError: of.NewGeneralResolutionError("boom"),
+		Reason:          of.DefaultReason,
+	})
+	assert.Error(t, err)
+}
+
 func TestBooleanEvaluation(t *testing.T) {
 	tests := []struct {
 		name                  string
@@ -220,12 +235,16 @@ func TestBooleanEvaluation(t *testing.T) {
 			},
 		},
 		{
-			name:            "resolution error",
-			flagKey:         "boolean-res-error",
-			defaultValue:    true,
-			mockRespFlagErr: of.NewInvalidContextResolutionError("boom"),
+			name:         "resolution error",
+			flagKey:      "boolean-res-error",
+			defaultValue: false,
+			mockRespFlag: &flipt.Flag{
+				Key:     "boolean-true",
+				Enabled: true,
+			},
+			mockRespEvaluationErr: of.NewInvalidContextResolutionError("boom"),
 			expected: of.BoolResolutionDetail{
-				Value: true,
+				Value: false,
 				ProviderResolutionDetail: of.ProviderResolutionDetail{
 					Reason:          of.DefaultReason,
 					ResolutionError: of.NewInvalidContextResolutionError("boom"),
@@ -233,15 +252,74 @@ func TestBooleanEvaluation(t *testing.T) {
 			},
 		},
 		{
-			name:            "error",
-			flagKey:         "boolean-error",
-			defaultValue:    true,
-			mockRespFlagErr: errors.New("boom"),
+			name:         "error",
+			flagKey:      "boolean-error",
+			defaultValue: false,
+			mockRespFlag: &flipt.Flag{
+				Key:     "boolean-true",
+				Enabled: true,
+			},
+			mockRespEvaluationErr: errors.New("boom"),
 			expected: of.BoolResolutionDetail{
-				Value: true,
+				Value: false,
 				ProviderResolutionDetail: of.ProviderResolutionDetail{
 					Reason:          of.DefaultReason,
 					ResolutionError: of.NewGeneralResolutionError("boom"),
+				},
+			},
+		},
+		{
+			name:         "no match",
+			flagKey:      "boolean-no-match",
+			defaultValue: false,
+			mockRespFlag: &flipt.Flag{
+				Key:     "boolean-no-match",
+				Enabled: true,
+			},
+			mockRespEvaluation: &flipt.EvaluationResponse{
+				FlagKey: "boolean-no-match",
+				Match:   false,
+			},
+			expected: of.BoolResolutionDetail{Value: false, ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.DefaultReason}},
+		},
+		{
+			name:         "non bool",
+			flagKey:      "boolean-no-bool",
+			defaultValue: false,
+			mockRespFlag: &flipt.Flag{
+				Key:     "boolean-no-bool",
+				Enabled: true,
+			},
+			mockRespEvaluation: &flipt.EvaluationResponse{
+				FlagKey: "boolean-no-bool",
+				Match:   true,
+				Value:   "abcd",
+			},
+			expected: of.BoolResolutionDetail{
+				Value: false,
+				ProviderResolutionDetail: of.ProviderResolutionDetail{
+					Reason:          of.DefaultReason,
+					ResolutionError: of.NewTypeMismatchResolutionError("value is not a boolean"),
+				},
+			},
+		},
+		{
+			name:         "match",
+			flagKey:      "boolean-match",
+			defaultValue: false,
+			mockRespFlag: &flipt.Flag{
+				Key:     "boolean-match",
+				Enabled: true,
+			},
+			mockRespEvaluation: &flipt.EvaluationResponse{
+				FlagKey: "boolean-match",
+				Match:   true,
+				Value:   "false",
+			},
+			expected: of.BoolResolutionDetail{
+				Value: false,
+				ProviderResolutionDetail: of.ProviderResolutionDetail{
+					Reason: of.TargetingMatchReason,
 				},
 			},
 		},
@@ -341,6 +419,40 @@ func TestStringEvaluation(t *testing.T) {
 				ProviderResolutionDetail: of.ProviderResolutionDetail{
 					Reason:          of.DefaultReason,
 					ResolutionError: of.NewGeneralResolutionError("boom"),
+				},
+			},
+		},
+		{
+			name:         "no match",
+			flagKey:      "string-no-match",
+			defaultValue: "default",
+			mockRespFlag: &flipt.Flag{
+				Key:     "string-no-match",
+				Enabled: true,
+			},
+			mockRespEvaluation: &flipt.EvaluationResponse{
+				FlagKey: "string-no-match",
+				Match:   false,
+			},
+			expected: of.StringResolutionDetail{Value: "default", ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.DefaultReason}},
+		},
+		{
+			name:         "match",
+			flagKey:      "string-match",
+			defaultValue: "default",
+			mockRespFlag: &flipt.Flag{
+				Key:     "string-match",
+				Enabled: true,
+			},
+			mockRespEvaluation: &flipt.EvaluationResponse{
+				FlagKey: "string-match",
+				Match:   true,
+				Value:   "abc",
+			},
+			expected: of.StringResolutionDetail{
+				Value: "abc",
+				ProviderResolutionDetail: of.ProviderResolutionDetail{
+					Reason: of.TargetingMatchReason,
 				},
 			},
 		},
@@ -464,6 +576,40 @@ func TestFloatEvaluation(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:         "no match",
+			flagKey:      "float-no-match",
+			defaultValue: 1.0,
+			mockRespFlag: &flipt.Flag{
+				Key:     "float-no-match",
+				Enabled: true,
+			},
+			mockRespEvaluation: &flipt.EvaluationResponse{
+				FlagKey: "float-no-match",
+				Match:   false,
+			},
+			expected: of.FloatResolutionDetail{Value: 1.0, ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.DefaultReason}},
+		},
+		{
+			name:         "match",
+			flagKey:      "float-match",
+			defaultValue: 1.0,
+			mockRespFlag: &flipt.Flag{
+				Key:     "float-match",
+				Enabled: true,
+			},
+			mockRespEvaluation: &flipt.EvaluationResponse{
+				FlagKey: "float-match",
+				Match:   true,
+				Value:   "2.0",
+			},
+			expected: of.FloatResolutionDetail{
+				Value: 2.0,
+				ProviderResolutionDetail: of.ProviderResolutionDetail{
+					Reason: of.TargetingMatchReason,
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -581,6 +727,40 @@ func TestIntEvaluation(t *testing.T) {
 				ProviderResolutionDetail: of.ProviderResolutionDetail{
 					Reason:          of.DefaultReason,
 					ResolutionError: of.NewGeneralResolutionError("boom"),
+				},
+			},
+		},
+		{
+			name:         "no match",
+			flagKey:      "int-no-match",
+			defaultValue: 1,
+			mockRespFlag: &flipt.Flag{
+				Key:     "int-no-match",
+				Enabled: true,
+			},
+			mockRespEvaluation: &flipt.EvaluationResponse{
+				FlagKey: "int-no-match",
+				Match:   false,
+			},
+			expected: of.IntResolutionDetail{Value: 1, ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.DefaultReason}},
+		},
+		{
+			name:         "match",
+			flagKey:      "int-match",
+			defaultValue: 1,
+			mockRespFlag: &flipt.Flag{
+				Key:     "int-match",
+				Enabled: true,
+			},
+			mockRespEvaluation: &flipt.EvaluationResponse{
+				FlagKey: "int-match",
+				Match:   true,
+				Value:   "2",
+			},
+			expected: of.IntResolutionDetail{
+				Value: 2,
+				ProviderResolutionDetail: of.ProviderResolutionDetail{
+					Reason: of.TargetingMatchReason,
 				},
 			},
 		},
@@ -732,6 +912,76 @@ func TestObjectEvaluation(t *testing.T) {
 				ProviderResolutionDetail: of.ProviderResolutionDetail{
 					Reason:          of.DefaultReason,
 					ResolutionError: of.NewGeneralResolutionError("boom"),
+				},
+			},
+		},
+		{
+			name:    "no match",
+			flagKey: "obj-no-match",
+			defaultValue: map[string]interface{}{
+				"baz": "qux",
+			},
+			mockRespFlag: &flipt.Flag{
+				Key:     "obj-no-match",
+				Enabled: true,
+			},
+			mockRespEvaluation: &flipt.EvaluationResponse{
+				FlagKey: "obj-no-match",
+				Match:   false,
+			},
+			expected: of.InterfaceResolutionDetail{
+				Value: map[string]interface{}{
+					"baz": "qux",
+				},
+				ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.DefaultReason},
+			},
+		},
+		{
+			name:    "match",
+			flagKey: "obj-match",
+			defaultValue: map[string]interface{}{
+				"baz": "qux",
+			},
+			mockRespFlag: &flipt.Flag{
+				Key:     "obj-match",
+				Enabled: true,
+			},
+			mockRespEvaluation: &flipt.EvaluationResponse{
+				FlagKey:    "obj-match",
+				Match:      true,
+				Value:      "2",
+				Attachment: "{\"foo\": \"bar\"}",
+			},
+			expected: of.InterfaceResolutionDetail{
+				Value: map[string]interface{}{
+					"foo": "bar",
+				},
+				ProviderResolutionDetail: of.ProviderResolutionDetail{
+					Reason: of.TargetingMatchReason,
+				},
+			},
+		},
+		{
+			name:    "match no attachment",
+			flagKey: "obj-match-no-attach",
+			defaultValue: map[string]interface{}{
+				"baz": "qux",
+			},
+			mockRespFlag: &flipt.Flag{
+				Key:     "obj-match-no-attach",
+				Enabled: true,
+			},
+			mockRespEvaluation: &flipt.EvaluationResponse{
+				FlagKey: "obj-match",
+				Match:   true,
+				Value:   "2",
+			},
+			expected: of.InterfaceResolutionDetail{
+				Value: map[string]interface{}{
+					"baz": "qux",
+				},
+				ProviderResolutionDetail: of.ProviderResolutionDetail{
+					Reason: of.DefaultReason,
 				},
 			},
 		},
