@@ -229,7 +229,7 @@ func (p Provider) BooleanEvaluation(ctx context.Context, flag string, defaultVal
 		return of.BoolResolutionDetail{
 			Value: bv,
 			ProviderResolutionDetail: of.ProviderResolutionDetail{
-				Reason: of.DefaultReason,
+				Reason: of.TargetingMatchReason,
 			},
 		}
 	}

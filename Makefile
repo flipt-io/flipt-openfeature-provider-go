@@ -33,7 +33,7 @@ integration-test: # dependent on `docker run -p 8080:8080 ghcr.io/flipt-io/flipt
 .PHONY: cover
 cover:
 	@echo "Testing with coverage..."
-	@go test -coverprofile=coverage.out -covermode=atomic ./...
+	@go test --short -coverprofile=coverage.out -covermode=atomic ./...
 	@go tool cover -html=coverage.out
 
 .PHONY: doc
