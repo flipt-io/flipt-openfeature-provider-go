@@ -39,7 +39,7 @@ cover:
 .PHONY: doc
 doc:
 	@echo "Generating documentation..."
-	@echo "	http://localhost:6060/pkg/github.com/flipt-io/openfeature-provider-go/"
-	@godoc -http=:6060 -goroot .
+	@echo "	http://localhost:6060/pkg/go.flipt.io/flipt-io/flipt-openfeature-provider/"
+	@godoc -index -http=:6060 -goroot .
 
 .DEFAULT_GOAL := build
