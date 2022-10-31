@@ -42,6 +42,7 @@ import (
 
 
 func main() {
+    // http://localhost:8080 is the default Flipt address
     openfeature.SetProvider(flipt.NewProvider())
 
     client := openfeature.NewClient("my-app")
@@ -68,21 +69,19 @@ func main() {
 
 The Flipt provider allows you to configure communication with Flipt over either HTTP(S) or GRPC, depending on your preference and network configuration.
 
-### HTTP
-
-#### HTTPS
+### HTTP(S)
 
 ```go
 provider := flipt.NewProvider(flipt.WithAddress("https://localhost:443"))
 ```
 
-#### insecure
+#### Insecure
 
 ```go
 provider := flipt.NewProvider(flipt.WithAddress("http://localhost:8080"))
 ```
 
-#### over a unix domain socket
+#### Unix Socket
 
 ```go
 provider := flipt.NewProvider(flipt.WithAddress("unix:///path/to/socket"))
@@ -90,7 +89,7 @@ provider := flipt.NewProvider(flipt.WithAddress("unix:///path/to/socket"))
 
 ### GRPC
 
-#### over a network
+#### HTTP/2
 
 ```go
 provider := flipt.NewProvider(
@@ -100,7 +99,7 @@ provider := flipt.NewProvider(
 )
 ```
 
-### over a unix domain socket
+#### Unix Socket
 
 ```go
 provider := flipt.NewProvider(
@@ -116,7 +115,6 @@ You can also set the `Service` manually in the provider if you want to use a cus
 ```go
 svc := servicehttp.New(
     servicehttp.WithAddress("http://localhost:8080"),
-    servicehttp.WithPort(8080),
 )
 
 provider := flipt.NewProvider(
