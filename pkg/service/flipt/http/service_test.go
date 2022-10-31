@@ -14,28 +14,6 @@ import (
 	"go.flipt.io/flipt-grpc"
 )
 
-func TestProtocol(t *testing.T) {
-	tests := []struct {
-		name     string
-		protocol Protocol
-	}{
-		{
-			name:     "http",
-			protocol: HTTP,
-		},
-		{
-			name:     "https",
-			protocol: HTTPS,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.name, tt.protocol.String())
-		})
-	}
-}
-
 func TestNew(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -45,36 +23,14 @@ func TestNew(t *testing.T) {
 		{
 			name: "default",
 			expected: Service{
-				host:     "localhost",
-				port:     8080,
-				protocol: HTTP,
+				address: "http://localhost:8080",
 			},
 		},
 		{
-			name: "with host",
-			opts: []Option{WithHost("foo")},
+			name: "with addr",
+			opts: []Option{WithAddress("https://foo:9090")},
 			expected: Service{
-				host:     "foo",
-				port:     8080,
-				protocol: HTTP,
-			},
-		},
-		{
-			name: "with port",
-			opts: []Option{WithPort(1234)},
-			expected: Service{
-				host:     "localhost",
-				port:     1234,
-				protocol: HTTP,
-			},
-		},
-		{
-			name: "with https",
-			opts: []Option{WithHTTPS()},
-			expected: Service{
-				host:     "localhost",
-				port:     8080,
-				protocol: HTTPS,
+				address: "https://foo:9090",
 			},
 		},
 	}
@@ -84,9 +40,7 @@ func TestNew(t *testing.T) {
 			s := New(tt.opts...)
 
 			assert.NotNil(t, s)
-			assert.Equal(t, tt.expected.host, s.host)
-			assert.Equal(t, tt.expected.port, s.port)
-			assert.Equal(t, tt.expected.protocol, s.protocol)
+			assert.Equal(t, tt.expected.address, s.address)
 		})
 	}
 }

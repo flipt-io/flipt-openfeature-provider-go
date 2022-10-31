@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.flipt.io/flipt-grpc"
-	service "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt"
 )
 
 func TestServiceType(t *testing.T) {
@@ -21,10 +20,6 @@ func TestServiceType(t *testing.T) {
 		{
 			name:        "http",
 			serviceType: ServiceTypeHTTP,
-		},
-		{
-			name:        "https",
-			serviceType: ServiceTypeHTTPS,
 		},
 		{
 			name:        "grpc",
@@ -46,7 +41,7 @@ func TestServiceType(t *testing.T) {
 func TestNew(t *testing.T) {
 	type want = struct {
 		config Config
-		svc    service.Service
+		svc    Service
 	}
 	tests := []struct {
 		name string
@@ -57,8 +52,7 @@ func TestNew(t *testing.T) {
 			name: "default",
 			want: want{
 				config: Config{
-					Port:        8080,
-					Host:        "localhost",
+					Address:     "http://localhost:8080",
 					ServiceType: ServiceTypeHTTP,
 				},
 			},
@@ -69,30 +63,17 @@ func TestNew(t *testing.T) {
 			want: want{
 				config: Config{
 					ServiceType: ServiceTypeGRPC,
-					Port:        8080,
-					Host:        "localhost",
+					Address:     "http://localhost:8080",
 				},
 			},
 		},
 		{
-			name: "with port",
-			opts: []Option{WithPort(8081)},
+			name: "with address",
+			opts: []Option{WithAddress("https://localhost:8081")},
 			want: want{
 				config: Config{
 					ServiceType: ServiceTypeHTTP,
-					Port:        8081,
-					Host:        "localhost",
-				},
-			},
-		},
-		{
-			name: "with host",
-			opts: []Option{WithHost("github.com")},
-			want: want{
-				config: Config{
-					ServiceType: ServiceTypeHTTP,
-					Port:        8080,
-					Host:        "github.com",
+					Address:     "https://localhost:8081",
 				},
 			},
 		},
@@ -102,40 +83,23 @@ func TestNew(t *testing.T) {
 			want: want{
 				config: Config{
 					ServiceType:     ServiceTypeHTTP,
-					Port:            8080,
-					Host:            "localhost",
+					Address:         "http://localhost:8080",
 					CertificatePath: "/path/to/cert",
-				},
-			},
-		},
-		{
-			name: "with socket path",
-			opts: []Option{WithSocketPath("/path/to/socket")},
-			want: want{
-				config: Config{
-					ServiceType: ServiceTypeHTTP,
-					Port:        8080,
-					Host:        "localhost",
-					SocketPath:  "/path/to/socket",
 				},
 			},
 		},
 		{
 			name: "with config",
 			opts: []Option{WithConfig(Config{
-				ServiceType:     ServiceTypeHTTPS,
-				Port:            8081,
-				Host:            "github.com",
+				ServiceType:     ServiceTypeHTTP,
+				Address:         "https://localhost:8081",
 				CertificatePath: "/path/to/cert",
-				SocketPath:      "/path/to/socket",
 			})},
 			want: want{
 				config: Config{
-					ServiceType:     ServiceTypeHTTPS,
-					Port:            8081,
-					Host:            "github.com",
+					ServiceType:     ServiceTypeHTTP,
+					Address:         "https://localhost:8081",
 					CertificatePath: "/path/to/cert",
-					SocketPath:      "/path/to/socket",
 				},
 			},
 		},
@@ -144,8 +108,7 @@ func TestNew(t *testing.T) {
 			opts: []Option{WithService(&mockService{})},
 			want: want{
 				config: Config{
-					Port:        8080,
-					Host:        "localhost",
+					Address:     "http://localhost:8080",
 					ServiceType: ServiceTypeHTTP,
 				},
 			},

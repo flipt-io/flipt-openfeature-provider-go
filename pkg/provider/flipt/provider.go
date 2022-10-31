@@ -8,7 +8,6 @@ import (
 
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
 	"go.flipt.io/flipt-grpc"
-	service "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt"
 	serviceGRPC "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt/grpc"
 	serviceHTTP "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt/http"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -20,10 +19,8 @@ var _ of.FeatureProvider = (*Provider)(nil)
 // Config is a configuration for the FliptProvider.
 type Config struct {
 	ServiceType     ServiceType
-	Port            uint
-	Host            string
+	Address         string
 	CertificatePath string
-	SocketPath      string
 }
 
 // ServiceType is the type of service.
@@ -32,8 +29,6 @@ type ServiceType int
 const (
 	// ServiceTypeHTTP argument, this is the default value.
 	ServiceTypeHTTP ServiceType = iota + 1
-	// ServiceTypeHTTPS argument, overrides the default value of http.
-	ServiceTypeHTTPS
 	// ServiceTypeGRPC argument, overrides the default value of http.
 	ServiceTypeGRPC
 )
@@ -42,8 +37,6 @@ func (s ServiceType) String() string {
 	switch s {
 	case ServiceTypeHTTP:
 		return "http"
-	case ServiceTypeHTTPS:
-		return "https"
 	case ServiceTypeGRPC:
 		return "grpc"
 	default:
@@ -61,17 +54,10 @@ func WithServiceType(serviceType ServiceType) Option {
 	}
 }
 
-// WithPort is an Option to set the port.
-func WithPort(port uint) Option {
+// WithAddress sets the address for the remote Flipt gRPC or HTTP API.
+func WithAddress(address string) Option {
 	return func(p *Provider) {
-		p.config.Port = port
-	}
-}
-
-// WithHost is an Option to set the host.
-func WithHost(host string) Option {
-	return func(p *Provider) {
-		p.config.Host = host
+		p.config.Address = address
 	}
 }
 
@@ -79,13 +65,6 @@ func WithHost(host string) Option {
 func WithCertificatePath(certificatePath string) Option {
 	return func(p *Provider) {
 		p.config.CertificatePath = certificatePath
-	}
-}
-
-// WithSocketPath is an Option to set the socket path (grpc only).
-func WithSocketPath(socketPath string) Option {
-	return func(p *Provider) {
-		p.config.SocketPath = socketPath
 	}
 }
 
@@ -97,7 +76,7 @@ func WithConfig(config Config) Option {
 }
 
 // WithService is an Option to override the service implementation.
-func WithService(svc service.Service) Option {
+func WithService(svc Service) Option {
 	return func(p *Provider) {
 		p.svc = svc
 	}
@@ -106,9 +85,8 @@ func WithService(svc service.Service) Option {
 // NewProvider returns a new Flipt provider.
 func NewProvider(opts ...Option) *Provider {
 	p := &Provider{config: Config{
-		Port:        8080,
-		Host:        "localhost",
 		ServiceType: ServiceTypeHTTP,
+		Address:     "http://localhost:8080",
 	}}
 
 	for _, opt := range opts {
@@ -118,13 +96,10 @@ func NewProvider(opts ...Option) *Provider {
 	if p.svc == nil {
 		switch p.config.ServiceType {
 		case ServiceTypeHTTP:
-			opts := []serviceHTTP.Option{serviceHTTP.WithHost(p.config.Host), serviceHTTP.WithPort(p.config.Port)}
-			p.svc = serviceHTTP.New(opts...)
-		case ServiceTypeHTTPS:
-			opts := []serviceHTTP.Option{serviceHTTP.WithHost(p.config.Host), serviceHTTP.WithPort(p.config.Port), serviceHTTP.WithHTTPS()}
+			opts := []serviceHTTP.Option{serviceHTTP.WithAddress(p.config.Address)}
 			p.svc = serviceHTTP.New(opts...)
 		case ServiceTypeGRPC:
-			opts := []serviceGRPC.Option{serviceGRPC.WithHost(p.config.Host), serviceGRPC.WithPort(p.config.Port), serviceGRPC.WithSocketPath(p.config.SocketPath), serviceGRPC.WithCertificatePath(p.config.CertificatePath)}
+			opts := []serviceGRPC.Option{serviceGRPC.WithAddress(p.config.Address), serviceGRPC.WithCertificatePath(p.config.CertificatePath)}
 			p.svc = serviceGRPC.New(opts...)
 		}
 	}
@@ -132,9 +107,15 @@ func NewProvider(opts ...Option) *Provider {
 	return p
 }
 
+//go:generate mockery --name=Service --structname=mockService --case=underscore --output=. --outpkg=flipt --filename=provider_support_test.go --testonly --with-expecter --disable-version-string
+type Service interface {
+	GetFlag(ctx context.Context, flagKey string) (*flipt.Flag, error)
+	Evaluate(ctx context.Context, flagKey string, evalCtx map[string]interface{}) (*flipt.EvaluationResponse, error)
+}
+
 // Provider implements the FeatureProvider interface and provides functions for evaluating flags with Flipt.
 type Provider struct {
-	svc    service.Service
+	svc    Service
 	config Config
 }
 

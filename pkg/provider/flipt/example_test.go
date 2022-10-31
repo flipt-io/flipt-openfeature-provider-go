@@ -9,8 +9,7 @@ import (
 
 func Example() {
 	openfeature.SetProvider(flipt.NewProvider(
-		flipt.WithHost("localhost"),
-		flipt.WithPort(9000),
+		flipt.WithAddress("localhost:9000"),
 		flipt.WithServiceType(flipt.ServiceTypeGRPC),
 	))
 
