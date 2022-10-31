@@ -55,6 +55,7 @@ func WithAddress(address string) Option {
 	if strings.HasPrefix(address, "unix://") {
 		address = "passthrough:///" + address
 	}
+
 	return func(s *Service) {
 		s.address = address
 	}
