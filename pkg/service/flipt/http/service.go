@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"path"
 	"strings"
 	"time"
 
@@ -71,13 +70,13 @@ func New(opts ...Option) *Service {
 	return s
 }
 
-func (s *Service) url(p string) string {
+func (s *Service) url(path string) string {
 	address := s.address
 	if strings.HasPrefix(s.address, "unix://") {
 		address = "http://unix"
 	}
 
-	return path.Join(address, p)
+	return address + path
 }
 
 // this never returns an error but wanted to make it similar to the grpc service.
