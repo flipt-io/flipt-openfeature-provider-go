@@ -6,11 +6,11 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
 	"go.flipt.io/flipt-grpc"
-	service "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -20,11 +20,8 @@ import (
 
 const (
 	requestID   = "requestID"
-	defaultHost = "localhost"
-	defaultPort = 9000
+	defaultAddr = "localhost:9000"
 )
-
-var _ service.Service = (*Service)(nil)
 
 //go:generate mockery --name=grpcClient --case=underscore --inpackage --filename=service_support_test.go --testonly --with-expecter --disable-version-string
 
@@ -36,10 +33,8 @@ type grpcClient interface {
 // Service is a GRPC service.
 type Service struct {
 	client          grpcClient
-	host            string
-	port            uint
+	address         string
 	certificatePath string
-	socketPath      string
 	once            sync.Once
 }
 
@@ -55,17 +50,14 @@ func WithGRPCClient(client grpcClient) Option {
 	}
 }
 
-// WithHost sets the host for the service.
-func WithHost(host string) Option {
-	return func(s *Service) {
-		s.host = host
+// WithAddress sets the address for the remote Flipt gRPC API.
+func WithAddress(address string) Option {
+	if strings.HasPrefix(address, "unix://") {
+		address = "passthrough:///" + address
 	}
-}
 
-// WithPort sets the port for the service.
-func WithPort(port uint) Option {
 	return func(s *Service) {
-		s.port = port
+		s.address = address
 	}
 }
 
@@ -76,18 +68,10 @@ func WithCertificatePath(certificatePath string) Option {
 	}
 }
 
-// WithSocketPath sets the socket path for the service.
-func WithSocketPath(socketPath string) Option {
-	return func(s *Service) {
-		s.socketPath = socketPath
-	}
-}
-
 // New creates a new GRPC service.
 func New(opts ...Option) *Service {
 	s := &Service{
-		host: defaultHost,
-		port: defaultPort,
+		address: defaultAddr,
 	}
 
 	for _, opt := range opts {
@@ -100,7 +84,6 @@ func New(opts ...Option) *Service {
 func (s *Service) connect() (*grpc.ClientConn, error) {
 	var (
 		err         error
-		address     = fmt.Sprintf("%s:%d", s.host, s.port)
 		credentials = insecure.NewCredentials()
 	)
 
@@ -112,12 +95,8 @@ func (s *Service) connect() (*grpc.ClientConn, error) {
 		}
 	}
 
-	if s.socketPath != "" {
-		address = fmt.Sprintf("passthrough:///unix://%s", s.socketPath)
-	}
-
 	conn, err := grpc.Dial(
-		address,
+		s.address,
 		grpc.WithTransportCredentials(credentials),
 		grpc.WithBlock(),
 	)

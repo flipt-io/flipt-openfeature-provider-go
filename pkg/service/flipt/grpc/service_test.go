@@ -22,42 +22,29 @@ func TestNew(t *testing.T) {
 		{
 			name: "default",
 			expected: Service{
-				host: "localhost",
-				port: 9000,
+				address: "localhost:9000",
 			},
 		},
 		{
 			name: "with host",
-			opts: []Option{WithHost("foo")},
+			opts: []Option{WithAddress("foo:9000")},
 			expected: Service{
-				host: "foo",
-				port: 9000,
-			},
-		},
-		{
-			name: "with port",
-			opts: []Option{WithPort(1234)},
-			expected: Service{
-				host: "localhost",
-				port: 1234,
+				address: "foo:9000",
 			},
 		},
 		{
 			name: "with certificate path",
 			opts: []Option{WithCertificatePath("foo")},
 			expected: Service{
-				host:            "localhost",
-				port:            9000,
+				address:         "localhost:9000",
 				certificatePath: "foo",
 			},
 		},
 		{
-			name: "with socket path",
-			opts: []Option{WithSocketPath("bar")},
+			name: "with unix address path",
+			opts: []Option{WithAddress("unix://bar")},
 			expected: Service{
-				host:       "localhost",
-				port:       9000,
-				socketPath: "foo",
+				address: "passthrough:///unix://bar",
 			},
 		},
 	}
@@ -68,8 +55,7 @@ func TestNew(t *testing.T) {
 			s := New(tt.opts...)
 
 			assert.NotNil(t, s)
-			assert.Equal(t, tt.expected.host, s.host)
-			assert.Equal(t, tt.expected.port, s.port)
+			assert.Equal(t, tt.expected.address, s.address)
 		})
 	}
 }

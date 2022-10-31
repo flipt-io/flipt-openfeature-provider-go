@@ -70,32 +70,42 @@ The Flipt provider allows you to configure communication with Flipt over either 
 
 ### HTTP
 
+#### HTTPS
+
 ```go
-provider := flipt.NewProvider(
-    flipt.WithHost("localhost"),
-    flipt.WithPort(8080),
-)
+provider := flipt.NewProvider(flipt.WithAddress("https://localhost:443"))
 ```
 
-### HTTPS
+#### insecure
 
 ```go
-provider := flipt.NewProvider(
-    flipt.WithHost("localhost"),
-    flipt.WithPort(443),
-    flipt.WithServiceType(flipt.ServiceTypeHTTPS),
-)
+provider := flipt.NewProvider(flipt.WithAddress("http://localhost:8080"))
+```
+
+#### over a unix domain socket
+
+```go
+provider := flipt.NewProvider(flipt.WithAddress("unix:///path/to/socket"))
 ```
 
 ### GRPC
 
+#### over a network
+
 ```go
 provider := flipt.NewProvider(
-    flipt.WithHost("localhost"),
-    flipt.WithPort(9000),
+    flipt.WithAddress("localhost:9000"),
     flipt.WithServiceType(flipt.ServiceTypeGRPC),
     flipt.WithCertificatePath("/path/to/cert.pem"), // optional
-    flipt.WithSocketPath("/path/to/socket"), // optional
+)
+```
+
+### over a unix domain socket
+
+```go
+provider := flipt.NewProvider(
+    flipt.WithAddress("unix:///path/to/socket"),
+    flipt.WithServiceType(flipt.ServiceTypeGRPC),
 )
 ```
 
@@ -105,7 +115,7 @@ You can also set the `Service` manually in the provider if you want to use a cus
 
 ```go
 svc := servicehttp.New(
-    servicehttp.WithHost("localhost"),
+    servicehttp.WithAddress("http://localhost:8080"),
     servicehttp.WithPort(8080),
 )
 
@@ -118,8 +128,7 @@ This also lets you override the `HTTPClient` or `GRPCClient` if you want to cust
 
 ```go
 svc := servicehttp.New(
-    servicehttp.WithHost("localhost"),
-    servicehttp.WithPort(8080),
+    servicehttp.WithAddress("http://localhost:8080"),
     servicehttp.WithHTTPClient(&http.Client{
         Timeout: 5 * time.Second,
     }),

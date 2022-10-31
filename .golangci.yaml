@@ -25,3 +25,7 @@ linters:
     - lll
     - paralleltest
     - varnamelen
+linters-settings:
+  wrapcheck:
+    ignorePackageGlobs:
+      - net

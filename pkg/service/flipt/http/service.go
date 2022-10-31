@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"strings"
+	"time"
 
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -14,35 +17,12 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"go.flipt.io/flipt-grpc"
-	service "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt"
 )
 
 const (
 	requestID   = "requestID"
-	defaultHost = "localhost"
-	defaultPort = 8080
+	defaultAddr = "http://localhost:8080"
 )
-
-var _ service.Service = (*Service)(nil)
-
-// Protocol is the protocol to use for the service.
-type Protocol int
-
-const (
-	// HTTP is the http protocol.
-	HTTP Protocol = iota
-	// HTTPS is the https protocol.
-	HTTPS
-)
-
-func (p Protocol) String() string {
-	switch p {
-	case HTTPS:
-		return "https"
-	default:
-		return "http"
-	}
-}
 
 //go:generate mockery --name=httpClient --case=underscore --inpackage --filename=service_support_test.go --testonly --with-expecter --disable-version-string
 type httpClient interface {
@@ -56,10 +36,8 @@ type errorBody struct {
 
 // Service is a http service.
 type Service struct {
-	client   httpClient
-	host     string
-	port     uint
-	protocol Protocol
+	client  httpClient
+	address string
 }
 
 // Option is a service option.
@@ -74,34 +52,16 @@ func WithHTTPClient(client httpClient) Option {
 	}
 }
 
-// WithHost sets the host for the service.
-func WithHost(host string) Option {
+// WithAddress sets the address for the target Flipt service.
+func WithAddress(address string) Option {
 	return func(s *Service) {
-		s.host = host
-	}
-}
-
-// WithPort sets the port for the service.
-func WithPort(port uint) Option {
-	return func(s *Service) {
-		s.port = port
-	}
-}
-
-// WithHTTPS sets the service protocol to https.
-func WithHTTPS() Option {
-	return func(s *Service) {
-		s.protocol = HTTPS
+		s.address = address
 	}
 }
 
 // New creates a new http(s) service.
 func New(opts ...Option) *Service {
-	s := &Service{
-		host:     defaultHost,
-		port:     defaultPort,
-		protocol: HTTP,
-	}
+	s := &Service{address: defaultAddr}
 
 	for _, opt := range opts {
 		opt(s)
@@ -110,20 +70,54 @@ func New(opts ...Option) *Service {
 	return s
 }
 
+func (s *Service) url(path string) string {
+	address := s.address
+	if strings.HasPrefix(s.address, "unix://") {
+		address = "http://unix"
+	}
+
+	return address + path
+}
+
 // this never returns an error but wanted to make it similar to the grpc service.
 func (s *Service) instance() (httpClient, error) { //nolint
 	if s.client != nil {
 		return s.client, nil
 	}
 
-	s.client = &http.Client{}
+	// the following dialer and transport defaults are copied
+	// from net/http.DefaultTransport setup
+	// with the addition of `unix` socket support
+	dialer := (&net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}).DialContext
+
+	// support unix:// scheme addresses
+	if strings.HasPrefix(s.address, "unix://") {
+		dialer = func(_ context.Context, _, _ string) (net.Conn, error) {
+			return net.Dial("unix", strings.TrimPrefix(s.address, "unix://"))
+		}
+	}
+
+	s.client = &http.Client{
+		Transport: &http.Transport{
+			Proxy:                 http.ProxyFromEnvironment,
+			DialContext:           dialer,
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		},
+	}
 
 	return s.client, nil
 }
 
 // GetFlag returns a flag if it exists for the given key.
 func (s *Service) GetFlag(ctx context.Context, flagKey string) (*flipt.Flag, error) {
-	url := fmt.Sprintf("%s://%s:%d/api/v1/flags/%s", s.protocol, s.host, s.port, flagKey)
+	url := s.url("/api/v1/flags/" + flagKey)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 
 	if err != nil {
@@ -204,8 +198,7 @@ func (s *Service) Evaluate(ctx context.Context, flagKey string, evalCtx map[stri
 		return nil, fmt.Errorf("marshalling request body %w", err)
 	}
 
-	url := fmt.Sprintf("%s://%s:%d/api/v1/evaluate", s.protocol, s.host, s.port)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(b))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.url("/api/v1/evaluate"), bytes.NewBuffer(b))
 
 	if err != nil {
 		return nil, fmt.Errorf("creating request %w", err)
