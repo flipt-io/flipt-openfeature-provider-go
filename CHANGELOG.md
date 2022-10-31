@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/flipt-io/flipt-openfeature-provider-go/compare/v0.1.1...v0.1.2) (2022-10-31)
+
+
+### Bug Fixes
+
+* **http:** dont use path.Join when scheme is present ([285bec6](https://github.com/flipt-io/flipt-openfeature-provider-go/commit/285bec60cbe4bf80ad1f111af60f21a5f39817b0))
+
 ## [0.1.1](https://github.com/flipt-io/flipt-openfeature-provider-go/compare/v0.1.0...v0.1.1) (2022-10-28)
 
 
