@@ -38,7 +38,7 @@ func (h httpClientFunc) Do(req *http.Request) (*http.Response, error) {
 }
 
 // otelPropagationClient uses the provide TextMapPropagator to propagate any
-// trace context from the requests context onto its outgoing headers
+// trace context from the requests context onto its outgoing headers.
 func otelPropagationClient(client httpClient, propagator propagation.TextMapPropagator) httpClient {
 	return httpClientFunc(func(req *http.Request) (*http.Response, error) {
 		if propagator != nil {
@@ -113,7 +113,7 @@ func (s *Service) url(path string) string {
 }
 
 // this never returns an error but wanted to make it similar to the grpc service.
-func (s *Service) instance() (client httpClient, _ error) { //nolint
+func (s *Service) instance(_ context.Context) (client httpClient, _ error) { //nolint
 	// defer decorating resulting client with middleware
 	defer func() { client = otelPropagationClient(client, s.propagator) }()
 
@@ -163,7 +163,7 @@ func (s *Service) GetFlag(ctx context.Context, flagKey string) (*flipt.Flag, err
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
-	conn, err := s.instance()
+	conn, err := s.instance(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +244,7 @@ func (s *Service) Evaluate(ctx context.Context, flagKey string, evalCtx map[stri
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
-	conn, err := s.instance()
+	conn, err := s.instance(ctx)
 	if err != nil {
 		return nil, err
 	}

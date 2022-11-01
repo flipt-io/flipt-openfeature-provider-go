@@ -29,3 +29,5 @@ linters-settings:
   wrapcheck:
     ignorePackageGlobs:
       - net
+    ignoreInterfaceRegexps:
+      - httpClient
