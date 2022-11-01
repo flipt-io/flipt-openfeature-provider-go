@@ -11,6 +11,7 @@ import (
 
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
 	"go.flipt.io/flipt-grpc"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -32,10 +33,11 @@ type grpcClient interface {
 
 // Service is a GRPC service.
 type Service struct {
-	client          grpcClient
-	address         string
-	certificatePath string
-	once            sync.Once
+	client            grpcClient
+	address           string
+	certificatePath   string
+	unaryInterceptors []grpc.UnaryClientInterceptor
+	once              sync.Once
 }
 
 // Option is a service option.
@@ -68,10 +70,23 @@ func WithCertificatePath(certificatePath string) Option {
 	}
 }
 
+// WithUnaryClientInterceptor sets the provided unary client interceptors
+// to be applied to the established gRPC client connection.
+func WithUnaryClientInterceptor(unaryInterceptors ...grpc.UnaryClientInterceptor) Option {
+	return func(s *Service) {
+		s.unaryInterceptors = unaryInterceptors
+	}
+}
+
 // New creates a new GRPC service.
 func New(opts ...Option) *Service {
 	s := &Service{
 		address: defaultAddr,
+		unaryInterceptors: []grpc.UnaryClientInterceptor{
+			// by default this establishes the otel.TextMapPropagator
+			// registers to the otel package.
+			otelgrpc.UnaryClientInterceptor(),
+		},
 	}
 
 	for _, opt := range opts {
@@ -99,6 +114,7 @@ func (s *Service) connect() (*grpc.ClientConn, error) {
 		s.address,
 		grpc.WithTransportCredentials(credentials),
 		grpc.WithBlock(),
+		grpc.WithChainUnaryInterceptor(s.unaryInterceptors...),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("dialing %w", err)
