@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
@@ -29,6 +31,24 @@ type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
+type httpClientFunc func(req *http.Request) (*http.Response, error)
+
+func (h httpClientFunc) Do(req *http.Request) (*http.Response, error) {
+	return h(req)
+}
+
+// otelPropagationClient uses the provide TextMapPropagator to propagate any
+// trace context from the requests context onto its outgoing headers
+func otelPropagationClient(client httpClient, propagator propagation.TextMapPropagator) httpClient {
+	return httpClientFunc(func(req *http.Request) (*http.Response, error) {
+		if propagator != nil {
+			propagator.Inject(req.Context(), propagation.HeaderCarrier(req.Header))
+		}
+
+		return client.Do(req)
+	})
+}
+
 type errorBody struct {
 	Error string     `json:"error"`
 	Code  codes.Code `json:"code"`
@@ -36,8 +56,9 @@ type errorBody struct {
 
 // Service is a http service.
 type Service struct {
-	client  httpClient
-	address string
+	client     httpClient
+	address    string
+	propagator propagation.TextMapPropagator
 }
 
 // Option is a service option.
@@ -59,9 +80,21 @@ func WithAddress(address string) Option {
 	}
 }
 
+// WithPropagator overrides the default propagation.TextMapPropagator used
+// to propagate trace context through the service calls.
+func WithPropagator(propagator propagation.TextMapPropagator) Option {
+	return func(s *Service) {
+		s.propagator = propagator
+	}
+}
+
 // New creates a new http(s) service.
 func New(opts ...Option) *Service {
-	s := &Service{address: defaultAddr}
+	s := &Service{
+		address: defaultAddr,
+		// default is to use globally registered propagator
+		propagator: otel.GetTextMapPropagator(),
+	}
 
 	for _, opt := range opts {
 		opt(s)
@@ -80,7 +113,10 @@ func (s *Service) url(path string) string {
 }
 
 // this never returns an error but wanted to make it similar to the grpc service.
-func (s *Service) instance() (httpClient, error) { //nolint
+func (s *Service) instance() (client httpClient, _ error) { //nolint
+	// defer decorating resulting client with middleware
+	defer func() { client = otelPropagationClient(client, s.propagator) }()
+
 	if s.client != nil {
 		return s.client, nil
 	}
