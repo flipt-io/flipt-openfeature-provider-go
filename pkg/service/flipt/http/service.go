@@ -184,7 +184,7 @@ func (s *Service) GetFlag(ctx context.Context, flagKey string) (*flipt.Flag, err
 
 	if resp.StatusCode == http.StatusOK {
 		f := &flipt.Flag{}
-		if err := protojson.Unmarshal(b, f); err != nil {
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(b, f); err != nil {
 			return nil, fmt.Errorf("unmarshalling response body %w", err)
 		}
 
@@ -265,7 +265,7 @@ func (s *Service) Evaluate(ctx context.Context, flagKey string, evalCtx map[stri
 
 	if resp.StatusCode == http.StatusOK {
 		e := &flipt.EvaluationResponse{}
-		if err := protojson.Unmarshal(b, e); err != nil {
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(b, e); err != nil {
 			return nil, fmt.Errorf("unmarshalling response body %w", err)
 		}
 
