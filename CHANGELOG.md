@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/flipt-io/flipt-openfeature-provider-go/compare/v0.1.3...v0.1.4) (2022-11-02)
+
+
+### Bug Fixes
+
+* discard unknown fields when unmarshaling json ([#14](https://github.com/flipt-io/flipt-openfeature-provider-go/issues/14)) ([4bc5504](https://github.com/flipt-io/flipt-openfeature-provider-go/commit/4bc55047454d03bc2f40e595899f36f5fde7c7b2))
+
 ## [0.1.3](https://github.com/flipt-io/flipt-openfeature-provider-go/compare/v0.1.2...v0.1.3) (2022-11-01)
 
 
