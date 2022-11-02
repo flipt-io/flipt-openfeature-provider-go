@@ -66,6 +66,17 @@ func TestGetFlag(t *testing.T) {
 			},
 		},
 		{
+			name:         "unknown field",
+			responseBody: []byte(`{"key":"foo","name":"Flag Name","description":"Flag Description","enabled":true, "what": "is this"}`),
+			responseCode: http.StatusOK,
+			expected: &flipt.Flag{
+				Key:         "foo",
+				Name:        "Flag Name",
+				Description: "Flag Description",
+				Enabled:     true,
+			},
+		},
+		{
 			name:         "flag not found",
 			responseBody: []byte(`{"error":"flag not found","code":5}`),
 			responseCode: http.StatusNotFound,
@@ -134,6 +145,15 @@ func TestEvaluate(t *testing.T) {
 		{
 			name:         "success",
 			responseBody: []byte(`{"flag_key":"foo","match":true}`),
+			responseCode: http.StatusOK,
+			expected: &flipt.EvaluationResponse{
+				FlagKey: "foo",
+				Match:   true,
+			},
+		},
+		{
+			name:         "unknown field",
+			responseBody: []byte(`{"flag_key":"foo","match":true, "what": "is this"}`),
 			responseCode: http.StatusOK,
 			expected: &flipt.EvaluationResponse{
 				FlagKey: "foo",
