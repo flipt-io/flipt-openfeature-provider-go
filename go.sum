@@ -213,8 +213,8 @@ github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
-go.flipt.io/flipt-grpc v1.1.0 h1:Hj9xHDGhqKOAYD+t/yTltGwBXM47v77M0XFNAGFBq+o=
-go.flipt.io/flipt-grpc v1.1.0/go.mod h1:mPD3/iuyyb6Dfq9FQmlx0L7syzhthY3MfjI/u2bcGrc=
+go.flipt.io/flipt-grpc v1.2.0 h1:TDGwnz1gJheHofKRuoOskeO9KxA3KsrHahNqAFiRqgg=
+go.flipt.io/flipt-grpc v1.2.0/go.mod h1:03TWAoZKJXth5zuW5r57TnE49iAOc/wKC2IrIpVFEX8=
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=
 go.opencensus.io v0.22.0/go.mod h1:+kGneAE2xo2IficOXnaByMWTGM9T73dGwxeWcUqIpI8=
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.36.4 h1:PRXhsszxTt5bbPriTjmaweWUsAnJYeWBhUMLRetUgBU=
