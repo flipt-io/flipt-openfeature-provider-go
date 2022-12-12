@@ -5,7 +5,8 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    reviewers:
-      - markphelps
-    assignees:
-      - markphelps
+    labels:
+      - "dependencies"
+      - "go"
+      # kodiak `merge.automerge_label`
+      - "automerge"
