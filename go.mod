@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/cucumber/godog v0.12.5
-	github.com/open-feature/go-sdk v1.0.0
+	github.com/open-feature/go-sdk v1.0.1
 	github.com/stretchr/testify v1.8.1
 	go.flipt.io/flipt-grpc v1.3.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.37.0
