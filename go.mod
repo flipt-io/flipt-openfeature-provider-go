@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/cucumber/godog v0.12.6
-	github.com/open-feature/go-sdk v1.0.1
+	github.com/open-feature/go-sdk v1.1.0
 	github.com/stretchr/testify v1.8.1
 	go.flipt.io/flipt-grpc v1.3.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.37.0
@@ -33,7 +33,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.11.2 // indirect
 	golang.org/x/net v0.4.0 // indirect
 	golang.org/x/sys v0.3.0 // indirect
-	golang.org/x/text v0.5.0 // indirect
+	golang.org/x/text v0.6.0 // indirect
 	google.golang.org/genproto v0.0.0-20221118155620-16455021b5e6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
