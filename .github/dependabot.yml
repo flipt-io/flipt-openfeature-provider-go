@@ -7,6 +7,5 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
-      - "go"
       # kodiak `merge.automerge_label`
       - "automerge"
