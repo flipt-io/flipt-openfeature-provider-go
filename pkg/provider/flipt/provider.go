@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
-	"go.flipt.io/flipt-grpc"
 	serviceGRPC "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt/grpc"
 	serviceHTTP "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt/http"
+	flipt "go.flipt.io/flipt/rpc/flipt"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -107,10 +108,10 @@ func NewProvider(opts ...Option) *Provider {
 	return p
 }
 
-//go:generate mockery --name=Service --structname=mockService --case=underscore --output=. --outpkg=flipt --filename=provider_support_test.go --testonly --with-expecter --disable-version-string
+//go:generate mockery --name=Service --structname=mockService --case=underscore --output=. --outpkg=flipt --filename=provider_support.go --testonly --with-expecter --disable-version-string
 type Service interface {
-	GetFlag(ctx context.Context, flagKey string) (*flipt.Flag, error)
-	Evaluate(ctx context.Context, flagKey string, evalCtx map[string]interface{}) (*flipt.EvaluationResponse, error)
+	GetFlag(ctx context.Context, namespaceKey, flagKey string) (*flipt.Flag, error)
+	Evaluate(ctx context.Context, namespaceKey, flagKey string, evalCtx map[string]interface{}) (*flipt.EvaluationResponse, error)
 }
 
 // Provider implements the FeatureProvider interface and provides functions for evaluating flags with Flipt.
@@ -124,8 +125,8 @@ func (p Provider) Metadata() of.Metadata {
 	return of.Metadata{Name: "flipt-provider"}
 }
 
-func (p Provider) getFlag(ctx context.Context, flag string) (*flipt.Flag, of.ProviderResolutionDetail, error) {
-	f, err := p.svc.GetFlag(ctx, flag)
+func (p Provider) getFlag(ctx context.Context, namespace, flag string) (*flipt.Flag, of.ProviderResolutionDetail, error) {
+	f, err := p.svc.GetFlag(ctx, namespace, flag)
 	if err != nil {
 		var rerr of.ResolutionError
 		if errors.As(err, &rerr) {
@@ -144,9 +145,28 @@ func (p Provider) getFlag(ctx context.Context, flag string) (*flipt.Flag, of.Pro
 	return f, of.ProviderResolutionDetail{}, nil
 }
 
+func splitNamespaceAndFlag(src string) (string, string) {
+	var flag, namespace string
+
+	ss := strings.Split(src, "/")
+
+	if len(ss) < 2 {
+		namespace = "default"
+		flag = ss[0]
+	} else {
+		namespace = ss[0]
+		flag = ss[1]
+	}
+
+	return flag, namespace
+}
+
 // BooleanEvaluation returns a boolean flag.
 func (p Provider) BooleanEvaluation(ctx context.Context, flag string, defaultValue bool, evalCtx of.FlattenedContext) of.BoolResolutionDetail {
-	f, res, err := p.getFlag(ctx, flag)
+	flagKey, namespace := splitNamespaceAndFlag(flag)
+
+	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
+	f, res, err := p.getFlag(ctx, namespace, flagKey)
 	if err != nil {
 		return of.BoolResolutionDetail{
 			Value:                    defaultValue,
@@ -163,7 +183,7 @@ func (p Provider) BooleanEvaluation(ctx context.Context, flag string, defaultVal
 		}
 	}
 
-	resp, err := p.svc.Evaluate(ctx, flag, evalCtx)
+	resp, err := p.svc.Evaluate(ctx, namespace, flagKey, evalCtx)
 	if err != nil {
 		var (
 			rerr   of.ResolutionError
@@ -225,8 +245,10 @@ func (p Provider) BooleanEvaluation(ctx context.Context, flag string, defaultVal
 
 // StringEvaluation returns a string flag.
 func (p Provider) StringEvaluation(ctx context.Context, flag string, defaultValue string, evalCtx of.FlattenedContext) of.StringResolutionDetail {
+	flagKey, namespace := splitNamespaceAndFlag(flag)
+
 	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
-	f, res, err := p.getFlag(ctx, flag)
+	f, res, err := p.getFlag(ctx, namespace, flagKey)
 	if err != nil {
 		return of.StringResolutionDetail{
 			Value:                    defaultValue,
@@ -243,7 +265,7 @@ func (p Provider) StringEvaluation(ctx context.Context, flag string, defaultValu
 		}
 	}
 
-	resp, err := p.svc.Evaluate(ctx, flag, evalCtx)
+	resp, err := p.svc.Evaluate(ctx, namespace, flagKey, evalCtx)
 	if err != nil {
 		var (
 			rerr   of.ResolutionError
@@ -285,8 +307,10 @@ func (p Provider) StringEvaluation(ctx context.Context, flag string, defaultValu
 
 // FloatEvaluation returns a float flag.
 func (p Provider) FloatEvaluation(ctx context.Context, flag string, defaultValue float64, evalCtx of.FlattenedContext) of.FloatResolutionDetail {
+	flagKey, namespace := splitNamespaceAndFlag(flag)
+
 	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
-	f, res, err := p.getFlag(ctx, flag)
+	f, res, err := p.getFlag(ctx, namespace, flagKey)
 	if err != nil {
 		return of.FloatResolutionDetail{
 			Value:                    defaultValue,
@@ -303,7 +327,7 @@ func (p Provider) FloatEvaluation(ctx context.Context, flag string, defaultValue
 		}
 	}
 
-	resp, err := p.svc.Evaluate(ctx, flag, evalCtx)
+	resp, err := p.svc.Evaluate(ctx, namespace, flagKey, evalCtx)
 	if err != nil {
 		var (
 			rerr   of.ResolutionError
@@ -356,8 +380,10 @@ func (p Provider) FloatEvaluation(ctx context.Context, flag string, defaultValue
 
 // IntEvaluation returns an int flag.
 func (p Provider) IntEvaluation(ctx context.Context, flag string, defaultValue int64, evalCtx of.FlattenedContext) of.IntResolutionDetail {
+	flagKey, namespace := splitNamespaceAndFlag(flag)
+
 	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
-	f, res, err := p.getFlag(ctx, flag)
+	f, res, err := p.getFlag(ctx, namespace, flagKey)
 	if err != nil {
 		return of.IntResolutionDetail{
 			Value:                    defaultValue,
@@ -374,7 +400,7 @@ func (p Provider) IntEvaluation(ctx context.Context, flag string, defaultValue i
 		}
 	}
 
-	resp, err := p.svc.Evaluate(ctx, flag, evalCtx)
+	resp, err := p.svc.Evaluate(ctx, namespace, flagKey, evalCtx)
 	if err != nil {
 		var (
 			rerr   of.ResolutionError
@@ -427,8 +453,10 @@ func (p Provider) IntEvaluation(ctx context.Context, flag string, defaultValue i
 
 // ObjectEvaluation returns an object flag with attachment if any. Value is a map of key/value pairs ([string]interface{}).
 func (p Provider) ObjectEvaluation(ctx context.Context, flag string, defaultValue interface{}, evalCtx of.FlattenedContext) of.InterfaceResolutionDetail {
+	flagKey, namespace := splitNamespaceAndFlag(flag)
+
 	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
-	f, res, err := p.getFlag(ctx, flag)
+	f, res, err := p.getFlag(ctx, namespace, flagKey)
 	if err != nil {
 		return of.InterfaceResolutionDetail{
 			Value:                    defaultValue,
@@ -445,7 +473,7 @@ func (p Provider) ObjectEvaluation(ctx context.Context, flag string, defaultValu
 		}
 	}
 
-	resp, err := p.svc.Evaluate(ctx, flag, evalCtx)
+	resp, err := p.svc.Evaluate(ctx, namespace, flagKey, evalCtx)
 	if err != nil {
 		var (
 			rerr   of.ResolutionError

@@ -1,17 +1,22 @@
 package servicehttp
 
 import (
-	"bytes"
 	"context"
-	"errors"
-	"io"
-	"net/http"
 	"testing"
 
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"go.flipt.io/flipt-grpc"
+	flipt "go.flipt.io/flipt/rpc/flipt"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	offlipt "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt"
+)
+
+const (
+	reqID    = "987654321"
+	entityID = "123456789"
 )
 
 func TestNew(t *testing.T) {
@@ -47,79 +52,47 @@ func TestNew(t *testing.T) {
 
 func TestGetFlag(t *testing.T) {
 	tests := []struct {
-		name         string
-		responseBody []byte
-		responseCode int
-		reqErr       error
-		expectedErr  error
-		expected     *flipt.Flag
+		name        string
+		err         error
+		expectedErr error
+		expected    *flipt.Flag
 	}{
 		{
-			name:         "success",
-			responseBody: []byte(`{"key":"foo","name":"Flag Name","description":"Flag Description","enabled":true}`),
-			responseCode: http.StatusOK,
+			name: "success",
 			expected: &flipt.Flag{
-				Key:         "foo",
-				Name:        "Flag Name",
-				Description: "Flag Description",
-				Enabled:     true,
+				Key:          "foo",
+				Name:         "Flag Name",
+				Description:  "Flag Description",
+				NamespaceKey: "foo-namespace",
+				Enabled:      true,
 			},
 		},
 		{
-			name:         "unknown field",
-			responseBody: []byte(`{"key":"foo","name":"Flag Name","description":"Flag Description","enabled":true, "what": "is this"}`),
-			responseCode: http.StatusOK,
-			expected: &flipt.Flag{
-				Key:         "foo",
-				Name:        "Flag Name",
-				Description: "Flag Description",
-				Enabled:     true,
-			},
+			name:        "flag not found",
+			err:         status.Error(codes.NotFound, `flag "foo" not found`),
+			expectedErr: of.NewFlagNotFoundResolutionError(`flag "foo" not found`),
 		},
 		{
-			name:         "flag not found",
-			responseBody: []byte(`{"error":"flag not found","code":5}`),
-			responseCode: http.StatusNotFound,
-			expectedErr:  of.NewFlagNotFoundResolutionError(`flag "foo" not found`),
-		},
-		{
-			name:         "invalid json",
-			responseBody: []byte(`{"invalid}`),
-			responseCode: http.StatusOK,
-			expectedErr:  errors.New("unmarshalling response body"),
-		},
-		{
-			name:        "request error",
-			reqErr:      errors.New("request error"),
-			expectedErr: errors.New("making request request error"),
-		},
-		{
-			name:         "unexpected status code",
-			responseCode: http.StatusInternalServerError,
-			expectedErr:  errors.New("getting flag: status=500 "),
+			name:        "other error",
+			err:         status.Error(codes.Internal, "internal error"),
+			expectedErr: of.NewGeneralResolutionError("internal error"),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := newMockHttpClient(t)
+			mockClient := offlipt.NewMockClient(t)
 
-			mockClient.EXPECT().Do(mock.Anything).Run(func(req *http.Request) {
-				assert.Equal(t, "GET", req.Method)
-				assert.Equal(t, "/api/v1/flags/foo", req.URL.Path)
-				assert.Equal(t, "application/json", req.Header.Get("Content-Type"))
-				assert.Equal(t, "application/json", req.Header.Get("Accept"))
-			}).Return(&http.Response{
-				Header:     http.Header{"Content-Type": []string{"application/json"}},
-				StatusCode: tt.responseCode,
-				Body:       io.NopCloser(bytes.NewReader(tt.responseBody)),
-			}, tt.reqErr)
+			mockClient.EXPECT().GetFlag(mock.Anything, &flipt.GetFlagRequest{
+				Key:          "foo",
+				NamespaceKey: "foo-namespace",
+			}).Return(tt.expected, tt.err)
 
 			s := &Service{
 				client: mockClient,
 			}
 
-			actual, err := s.GetFlag(context.Background(), "foo")
+			actual, err := s.GetFlag(context.Background(), "foo-namespace", "foo")
 			if tt.expectedErr != nil {
 				assert.ErrorContains(t, err, tt.expectedErr.Error())
 			} else {
@@ -128,6 +101,7 @@ func TestGetFlag(t *testing.T) {
 				assert.Equal(t, tt.expected.Name, actual.Name)
 				assert.Equal(t, tt.expected.Description, actual.Description)
 				assert.Equal(t, tt.expected.Enabled, actual.Enabled)
+				assert.Equal(t, tt.expected.NamespaceKey, actual.NamespaceKey)
 			}
 		})
 	}
@@ -135,80 +109,56 @@ func TestGetFlag(t *testing.T) {
 
 func TestEvaluate(t *testing.T) {
 	tests := []struct {
-		name         string
-		responseBody []byte
-		responseCode int
-		reqErr       error
-		expectedErr  error
-		expected     *flipt.EvaluationResponse
+		name        string
+		err         error
+		expectedErr error
+		expected    *flipt.EvaluationResponse
 	}{
 		{
-			name:         "success",
-			responseBody: []byte(`{"flag_key":"foo","match":true}`),
-			responseCode: http.StatusOK,
+			name: "success",
 			expected: &flipt.EvaluationResponse{
-				FlagKey: "foo",
-				Match:   true,
+				FlagKey:    "foo",
+				Match:      true,
+				SegmentKey: "foo-segment",
 			},
 		},
 		{
-			name:         "unknown field",
-			responseBody: []byte(`{"flag_key":"foo","match":true, "what": "is this"}`),
-			responseCode: http.StatusOK,
-			expected: &flipt.EvaluationResponse{
-				FlagKey: "foo",
-				Match:   true,
-			},
+			name:        "flag not found",
+			err:         status.Error(codes.NotFound, `flag "foo" not found`),
+			expectedErr: of.NewFlagNotFoundResolutionError(`flag "foo" not found`),
 		},
 		{
-			name:         "flag not found",
-			responseBody: []byte(`{"error":"flag not found","code":5}`),
-			responseCode: http.StatusNotFound,
-			expectedErr:  of.NewFlagNotFoundResolutionError(`flag "foo" not found`),
-		},
-		{
-			name:         "invalid json",
-			responseBody: []byte(`{"invalid}`),
-			responseCode: http.StatusOK,
-			expectedErr:  errors.New("unmarshalling response body"),
-		},
-		{
-			name:        "request error",
-			reqErr:      errors.New("request error"),
-			expectedErr: errors.New("making request request error"),
-		},
-		{
-			name:         "unexpected status code",
-			responseCode: http.StatusInternalServerError,
-			expectedErr:  errors.New("evaluating: status=500 "),
+			name:        "other error",
+			err:         status.Error(codes.Internal, "internal error"),
+			expectedErr: of.NewGeneralResolutionError("internal error"),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := newMockHttpClient(t)
+			mockClient := offlipt.NewMockClient(t)
 
-			mockClient.EXPECT().Do(mock.Anything).Run(func(req *http.Request) {
-				assert.Equal(t, "POST", req.Method)
-				assert.Equal(t, "/api/v1/evaluate", req.URL.Path)
-				assert.Equal(t, "application/json", req.Header.Get("Content-Type"))
-				assert.Equal(t, "application/json", req.Header.Get("Accept"))
-			}).Return(&http.Response{
-				Header:     http.Header{"Content-Type": []string{"application/json"}},
-				StatusCode: tt.responseCode,
-				Body:       io.NopCloser(bytes.NewReader(tt.responseBody)),
-			}, tt.reqErr)
+			mockClient.EXPECT().Evaluate(mock.Anything, &flipt.EvaluationRequest{
+				FlagKey:      "foo",
+				NamespaceKey: "foo-namespace",
+				RequestId:    reqID,
+				EntityId:     entityID,
+				Context: map[string]string{
+					"requestID":    reqID,
+					"targetingKey": entityID,
+				},
+			}).Return(tt.expected, tt.err)
 
 			s := &Service{
 				client: mockClient,
 			}
 
 			evalCtx := map[string]interface{}{
-				"foo":           "bar",
-				of.TargetingKey: "12345",
+				"requestID":     reqID,
+				of.TargetingKey: entityID,
 			}
 
-			actual, err := s.Evaluate(context.Background(), "foo", evalCtx)
+			actual, err := s.Evaluate(context.Background(), "foo-namespace", "foo", evalCtx)
 			if tt.expectedErr != nil {
 				assert.ErrorContains(t, err, tt.expectedErr.Error())
 			} else {
@@ -224,9 +174,9 @@ func TestEvaluate(t *testing.T) {
 func TestEvaluateInvalidContext(t *testing.T) {
 	s := &Service{}
 
-	_, err := s.Evaluate(context.Background(), "foo", nil)
+	_, err := s.Evaluate(context.Background(), "foo-namespace", "foo", nil)
 	assert.EqualError(t, err, of.NewInvalidContextResolutionError("evalCtx is nil").Error())
 
-	_, err = s.Evaluate(context.Background(), "foo", map[string]interface{}{})
+	_, err = s.Evaluate(context.Background(), "foo-namespace", "foo", map[string]interface{}{})
 	assert.EqualError(t, err, of.NewTargetingKeyMissingResolutionError("targetingKey is missing").Error())
 }

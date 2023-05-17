@@ -14,6 +14,11 @@ generate:
 	@echo "Generating..."
 	@go generate ./...
 
+.PHONY: install
+install:
+	@echo "Installing mockery..."
+	@go install github.com/vektra/mockery/v2@v2.20.0
+
 .PHONY: lint
 lint:
 	@echo "Linting..."

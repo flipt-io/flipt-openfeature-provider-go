@@ -2,15 +2,21 @@ package servicegrpc
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
 	"github.com/stretchr/testify/assert"
 	mock "github.com/stretchr/testify/mock"
-	"go.flipt.io/flipt-grpc"
+
+	offlipt "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt"
+	flipt "go.flipt.io/flipt/rpc/flipt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+)
+
+const (
+	reqID    = "987654321"
+	entityID = "123456789"
 )
 
 func TestNew(t *testing.T) {
@@ -60,83 +66,46 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestGRPCToOpenFeatureError(t *testing.T) {
-	tests := []struct {
-		name        string
-		grpcStatus  *status.Status
-		expectedErr of.ResolutionError
-	}{
-		{
-			name:        "invalid argument",
-			grpcStatus:  status.New(codes.InvalidArgument, "invalid argument"),
-			expectedErr: of.NewInvalidContextResolutionError("invalid argument"),
-		},
-		{
-			name:        "not found",
-			grpcStatus:  status.New(codes.NotFound, "not found"),
-			expectedErr: of.NewFlagNotFoundResolutionError("not found"),
-		},
-		{
-			name:        "unavailable",
-			grpcStatus:  status.New(codes.Unavailable, "unavailable"),
-			expectedErr: of.NewProviderNotReadyResolutionError("unavailable"),
-		},
-		{
-			name:        "unknown",
-			grpcStatus:  status.New(codes.Unknown, "unknown"),
-			expectedErr: of.NewGeneralResolutionError("unknown"),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := grpcToOpenFeatureError(*tt.grpcStatus)
-
-			assert.EqualError(t, err, tt.expectedErr.Error())
-		})
-	}
-}
-
 func TestGetFlag(t *testing.T) {
 	tests := []struct {
 		name        string
-		response    *flipt.Flag
-		reqErr      error
+		err         error
 		expectedErr error
 		expected    *flipt.Flag
 	}{
 		{
 			name: "success",
-			response: &flipt.Flag{
-				Key: "foo",
-			},
 			expected: &flipt.Flag{
-				Key: "foo",
+				Key:          "foo",
+				NamespaceKey: "foo-namespace",
 			},
 		},
 		{
 			name:        "flag not found",
-			reqErr:      status.New(codes.NotFound, "not found").Err(),
-			expectedErr: of.NewFlagNotFoundResolutionError("not found"),
+			err:         status.Error(codes.NotFound, `flag "foo" not found`),
+			expectedErr: of.NewFlagNotFoundResolutionError(`flag "foo" not found`),
 		},
 		{
-			name:        "error",
-			reqErr:      errors.New("boom"),
-			expectedErr: errors.New("getting flag \"foo\" boom"),
+			name:        "other error",
+			err:         status.Error(codes.Internal, "internal error"),
+			expectedErr: of.NewGeneralResolutionError("internal error"),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := newMockGrpcClient(t)
+			mockClient := offlipt.NewMockClient(t)
 
-			mockClient.On("GetFlag", mock.Anything, mock.Anything).Return(tt.response, tt.reqErr)
+			mockClient.On("GetFlag", mock.Anything, &flipt.GetFlagRequest{
+				Key:          "foo",
+				NamespaceKey: "foo-namespace",
+			}).Return(tt.expected, tt.err)
 
 			s := &Service{
 				client: mockClient,
 			}
 
-			actual, err := s.GetFlag(context.Background(), "foo")
+			actual, err := s.GetFlag(context.Background(), "foo-namespace", "foo")
 			if tt.expectedErr != nil {
 				assert.EqualError(t, err, tt.expectedErr.Error())
 			} else {
@@ -150,55 +119,62 @@ func TestGetFlag(t *testing.T) {
 func TestEvaluate(t *testing.T) {
 	tests := []struct {
 		name        string
-		response    *flipt.EvaluationResponse
-		reqErr      error
+		err         error
 		expectedErr error
 		expected    *flipt.EvaluationResponse
 	}{
 		{
 			name: "success",
-			response: &flipt.EvaluationResponse{
-				FlagKey: "foo",
-				Match:   true,
-			},
 			expected: &flipt.EvaluationResponse{
-				FlagKey: "foo",
-				Match:   true,
+				FlagKey:    "foo",
+				Match:      true,
+				SegmentKey: "foo-segment",
 			},
 		},
 		{
 			name:        "flag not found",
-			reqErr:      status.New(codes.NotFound, "not found").Err(),
-			expectedErr: of.NewFlagNotFoundResolutionError("not found"),
+			err:         status.Error(codes.NotFound, `flag "foo" not found`),
+			expectedErr: of.NewFlagNotFoundResolutionError(`flag "foo" not found`),
 		},
 		{
-			name:        "error",
-			reqErr:      errors.New("boom"),
-			expectedErr: errors.New("evaluating flag \"foo\" boom"),
+			name:        "other error",
+			err:         status.Error(codes.Internal, "internal error"),
+			expectedErr: of.NewGeneralResolutionError("internal error"),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockClient := newMockGrpcClient(t)
+			mockClient := offlipt.NewMockClient(t)
 
-			mockClient.On("Evaluate", mock.Anything, mock.Anything, mock.Anything).Return(tt.response, tt.reqErr)
+			mockClient.EXPECT().Evaluate(mock.Anything, &flipt.EvaluationRequest{
+				FlagKey:      "foo",
+				NamespaceKey: "foo-namespace",
+				RequestId:    reqID,
+				EntityId:     entityID,
+				Context: map[string]string{
+					"requestID":    reqID,
+					"targetingKey": entityID,
+				},
+			}).Return(tt.expected, tt.err)
 
 			s := &Service{
 				client: mockClient,
 			}
 
 			evalCtx := map[string]interface{}{
-				"foo":           "bar",
-				of.TargetingKey: "12345",
+				"requestID":     reqID,
+				of.TargetingKey: entityID,
 			}
 
-			actual, err := s.Evaluate(context.Background(), "foo", evalCtx)
+			actual, err := s.Evaluate(context.Background(), "foo-namespace", "foo", evalCtx)
 			if tt.expectedErr != nil {
-				assert.EqualError(t, err, tt.expectedErr.Error())
+				assert.ErrorContains(t, err, tt.expectedErr.Error())
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, actual)
+				assert.Equal(t, tt.expected.FlagKey, actual.FlagKey)
+				assert.Equal(t, tt.expected.Match, actual.Match)
+				assert.Equal(t, tt.expected.SegmentKey, actual.SegmentKey)
 			}
 		})
 	}
@@ -207,10 +183,10 @@ func TestEvaluate(t *testing.T) {
 func TestEvaluateInvalidContext(t *testing.T) {
 	s := &Service{}
 
-	_, err := s.Evaluate(context.Background(), "foo", nil)
+	_, err := s.Evaluate(context.Background(), "foo-namespace", "foo", nil)
 	assert.EqualError(t, err, of.NewInvalidContextResolutionError("evalCtx is nil").Error())
 
-	_, err = s.Evaluate(context.Background(), "foo", map[string]interface{}{})
+	_, err = s.Evaluate(context.Background(), "foo-namespace", "foo", map[string]interface{}{})
 	assert.EqualError(t, err, of.NewTargetingKeyMissingResolutionError("targetingKey is missing").Error())
 }
 
