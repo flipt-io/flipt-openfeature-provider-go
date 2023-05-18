@@ -17,7 +17,7 @@ From the [OpenFeature Specification](https://docs.openfeature.dev/docs/specifica
 
 ## Requirements
 
-- Go 1.16+
+- Go 1.20+
 - A running instance of [Flipt](https://www.flipt.io/docs/installation)
 
 ## Usage
@@ -67,18 +67,12 @@ func main() {
 
 ## Configuration
 
-The Flipt provider allows you to configure communication with Flipt over either HTTP(S) or GRPC, depending on your preference and network configuration.
+The Flipt provider allows you communicate with Flipt over either HTTP(S) or GRPC, depending on the address provided.
 
 ### HTTP(S)
 
 ```go
 provider := flipt.NewProvider(flipt.WithAddress("https://localhost:443"))
-```
-
-#### Insecure
-
-```go
-provider := flipt.NewProvider(flipt.WithAddress("http://localhost:8080"))
 ```
 
 #### Unix Socket
@@ -92,10 +86,16 @@ provider := flipt.NewProvider(flipt.WithAddress("unix:///path/to/socket"))
 #### HTTP/2
 
 ```go
+type Token struct {}
+
+func (t *Token) ClientToken() (string, error) {
+    return "a-client-token", nil
+}
+
 provider := flipt.NewProvider(
-    flipt.WithAddress("localhost:9000"),
-    flipt.WithServiceType(flipt.ServiceTypeGRPC),
+    flipt.WithAddress("grpc://localhost:9000"),
     flipt.WithCertificatePath("/path/to/cert.pem"), // optional
+    flipt.WithClientProvider(&Token{}), // optional
 )
 ```
 
@@ -104,35 +104,5 @@ provider := flipt.NewProvider(
 ```go
 provider := flipt.NewProvider(
     flipt.WithAddress("unix:///path/to/socket"),
-    flipt.WithServiceType(flipt.ServiceTypeGRPC),
-)
-```
-
-### Customization
-
-You can also set the `Service` manually in the provider if you want to use a custom implementation of the `Service` interface (or other configuration of the existing Services):
-
-```go
-svc := servicehttp.New(
-    servicehttp.WithAddress("http://localhost:8080"),
-)
-
-provider := flipt.NewProvider(
-    flipt.WithService(svc),
-)
-```
-
-This also lets you override the `HTTPClient` or `GRPCClient` if you want to customize the underlying transport:
-
-```go
-svc := servicehttp.New(
-    servicehttp.WithAddress("http://localhost:8080"),
-    servicehttp.WithHTTPClient(&http.Client{
-        Timeout: 5 * time.Second,
-    }),
-)
-
-provider := flipt.NewProvider(
-    flipt.WithService(svc),
 )
 ```

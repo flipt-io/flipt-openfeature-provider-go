@@ -35,6 +35,7 @@ type Service struct {
 	certificatePath   string
 	unaryInterceptors []grpc.UnaryClientInterceptor
 	once              sync.Once
+	tokenProvider     sdk.ClientTokenProvider
 }
 
 // Option is a service option.
@@ -59,6 +60,14 @@ func WithCertificatePath(certificatePath string) Option {
 func WithUnaryClientInterceptor(unaryInterceptors ...grpc.UnaryClientInterceptor) Option {
 	return func(s *Service) {
 		s.unaryInterceptors = unaryInterceptors
+	}
+}
+
+// WithClientTokenProvider sets the token provider for auth to support client
+// auth needs.
+func WithClientTokenProvider(tokenProvider sdk.ClientTokenProvider) Option {
+	return func(s *Service) {
+		s.tokenProvider = tokenProvider
 	}
 }
 
@@ -126,8 +135,14 @@ func (s *Service) instance() (offlipt.Client, error) {
 			err = fmt.Errorf("connecting %w", uerr)
 		}
 
+		opts := []sdk.Option{}
+
+		if s.tokenProvider != nil {
+			opts = append(opts, sdk.WithClientTokenProvider(s.tokenProvider))
+		}
+
 		if u.Scheme == "https" || u.Scheme == "http" {
-			s.client = sdk.New(sdkhttp.NewTransport(s.address)).Flipt()
+			s.client = sdk.New(sdkhttp.NewTransport(s.address), opts...).Flipt()
 
 			return
 		}
@@ -137,7 +152,7 @@ func (s *Service) instance() (offlipt.Client, error) {
 			err = fmt.Errorf("connecting %w", cerr)
 		}
 
-		s.client = sdk.New(sdkgrpc.NewTransport(conn)).Flipt()
+		s.client = sdk.New(sdkgrpc.NewTransport(conn), opts...).Flipt()
 	})
 
 	return s.client, err

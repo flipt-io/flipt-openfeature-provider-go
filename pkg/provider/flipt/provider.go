@@ -10,6 +10,7 @@ import (
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
 	"go.flipt.io/flipt-openfeature-provider/pkg/service/flipt/transport"
 	flipt "go.flipt.io/flipt/rpc/flipt"
+	sdk "go.flipt.io/flipt/sdk/go"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -20,6 +21,7 @@ var _ of.FeatureProvider = (*Provider)(nil)
 type Config struct {
 	Address         string
 	CertificatePath string
+	TokenProvider   sdk.ClientTokenProvider
 }
 
 // Option is a configuration option for the provider.
@@ -53,6 +55,14 @@ func WithService(svc Service) Option {
 	}
 }
 
+// WithClientTokenProvider sets the token provider for auth to support client
+// auth needs.
+func WithClientTokenProvider(tokenProvider sdk.ClientTokenProvider) Option {
+	return func(p *Provider) {
+		p.config.TokenProvider = tokenProvider
+	}
+}
+
 // NewProvider returns a new Flipt provider.
 func NewProvider(opts ...Option) *Provider {
 	p := &Provider{config: Config{
@@ -65,6 +75,10 @@ func NewProvider(opts ...Option) *Provider {
 
 	if p.svc == nil {
 		topts := []transport.Option{transport.WithAddress(p.config.Address), transport.WithCertificatePath(p.config.CertificatePath)}
+		if p.config.TokenProvider != nil {
+			topts = append(topts, transport.WithClientTokenProvider(p.config.TokenProvider))
+		}
+
 		p.svc = transport.New(topts...)
 	}
 
