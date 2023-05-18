@@ -1034,3 +1034,13 @@ func TestObjectEvaluation(t *testing.T) {
 		})
 	}
 }
+
+func TestSplitNamespaceAndFlag(t *testing.T) {
+	ns, flag := splitNamespaceAndFlag("foo")
+	assert.Equal(t, "default", ns)
+	assert.Equal(t, "foo", flag)
+
+	ns, flag = splitNamespaceAndFlag("flipt/foo")
+	assert.Equal(t, "flipt", ns)
+	assert.Equal(t, "foo", flag)
+}
