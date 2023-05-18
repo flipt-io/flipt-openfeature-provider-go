@@ -1,10 +1,11 @@
-package servicegrpc
+package transport
 
 import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -15,6 +16,7 @@ import (
 	flipt "go.flipt.io/flipt/rpc/flipt"
 	sdk "go.flipt.io/flipt/sdk/go"
 	sdkgrpc "go.flipt.io/flipt/sdk/go/grpc"
+	sdkhttp "go.flipt.io/flipt/sdk/go/http"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -23,10 +25,10 @@ import (
 
 const (
 	requestID   = "requestID"
-	defaultAddr = "localhost:9000"
+	defaultAddr = "http://localhost:8080"
 )
 
-// Service is a GRPC service.
+// Service is a Transport service.
 type Service struct {
 	client            offlipt.Client
 	address           string
@@ -40,10 +42,6 @@ type Option func(*Service)
 
 // WithAddress sets the address for the remote Flipt gRPC API.
 func WithAddress(address string) Option {
-	if strings.HasPrefix(address, "unix://") {
-		address = "passthrough:///" + address
-	}
-
 	return func(s *Service) {
 		s.address = address
 	}
@@ -64,7 +62,7 @@ func WithUnaryClientInterceptor(unaryInterceptors ...grpc.UnaryClientInterceptor
 	}
 }
 
-// New creates a new GRPC service.
+// New creates a new Transport service.
 func New(opts ...Option) *Service {
 	s := &Service{
 		address: defaultAddr,
@@ -96,8 +94,14 @@ func (s *Service) connect() (*grpc.ClientConn, error) {
 		}
 	}
 
+	var address = s.address
+
+	if strings.HasPrefix(s.address, "unix://") {
+		address = "passthrough:///" + s.address
+	}
+
 	conn, err := grpc.Dial(
-		s.address,
+		address,
 		grpc.WithTransportCredentials(credentials),
 		grpc.WithBlock(),
 		grpc.WithChainUnaryInterceptor(s.unaryInterceptors...),
@@ -117,12 +121,23 @@ func (s *Service) instance() (offlipt.Client, error) {
 	var err error
 
 	s.once.Do(func() {
+		u, uerr := url.Parse(s.address)
+		if uerr != nil {
+			err = fmt.Errorf("connecting %w", uerr)
+		}
+
+		if u.Scheme == "https" || u.Scheme == "http" {
+			s.client = sdk.New(sdkhttp.NewTransport(s.address)).Flipt()
+
+			return
+		}
+
 		conn, cerr := s.connect()
 		if cerr != nil {
 			err = fmt.Errorf("connecting %w", cerr)
 		}
-		fliptSdk := sdk.New(sdkgrpc.NewTransport(conn))
-		s.client = fliptSdk.Flipt()
+
+		s.client = sdk.New(sdkgrpc.NewTransport(conn)).Flipt()
 	})
 
 	return s.client, err

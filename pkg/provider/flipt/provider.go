@@ -8,8 +8,7 @@ import (
 	"strings"
 
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
-	serviceGRPC "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt/grpc"
-	serviceHTTP "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt/http"
+	"go.flipt.io/flipt-openfeature-provider/pkg/service/flipt/transport"
 	flipt "go.flipt.io/flipt/rpc/flipt"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -19,41 +18,12 @@ var _ of.FeatureProvider = (*Provider)(nil)
 
 // Config is a configuration for the FliptProvider.
 type Config struct {
-	ServiceType     ServiceType
 	Address         string
 	CertificatePath string
 }
 
-// ServiceType is the type of service.
-type ServiceType int
-
-const (
-	// ServiceTypeHTTP argument, this is the default value.
-	ServiceTypeHTTP ServiceType = iota + 1
-	// ServiceTypeGRPC argument, overrides the default value of http.
-	ServiceTypeGRPC
-)
-
-func (s ServiceType) String() string {
-	switch s {
-	case ServiceTypeHTTP:
-		return "http"
-	case ServiceTypeGRPC:
-		return "grpc"
-	default:
-		return "unknown"
-	}
-}
-
 // Option is a configuration option for the provider.
 type Option func(*Provider)
-
-// WithServiceType is an Option to set the service type.
-func WithServiceType(serviceType ServiceType) Option {
-	return func(p *Provider) {
-		p.config.ServiceType = serviceType
-	}
-}
 
 // WithAddress sets the address for the remote Flipt gRPC or HTTP API.
 func WithAddress(address string) Option {
@@ -76,7 +46,7 @@ func WithConfig(config Config) Option {
 	}
 }
 
-// WithService is an Option to override the service implementation.
+// WithService is an Option to set the service for the Provider.
 func WithService(svc Service) Option {
 	return func(p *Provider) {
 		p.svc = svc
@@ -86,8 +56,7 @@ func WithService(svc Service) Option {
 // NewProvider returns a new Flipt provider.
 func NewProvider(opts ...Option) *Provider {
 	p := &Provider{config: Config{
-		ServiceType: ServiceTypeHTTP,
-		Address:     "http://localhost:8080",
+		Address: "http://localhost:8080",
 	}}
 
 	for _, opt := range opts {
@@ -95,14 +64,8 @@ func NewProvider(opts ...Option) *Provider {
 	}
 
 	if p.svc == nil {
-		switch p.config.ServiceType {
-		case ServiceTypeHTTP:
-			opts := []serviceHTTP.Option{serviceHTTP.WithAddress(p.config.Address)}
-			p.svc = serviceHTTP.New(opts...)
-		case ServiceTypeGRPC:
-			opts := []serviceGRPC.Option{serviceGRPC.WithAddress(p.config.Address), serviceGRPC.WithCertificatePath(p.config.CertificatePath)}
-			p.svc = serviceGRPC.New(opts...)
-		}
+		topts := []transport.Option{transport.WithAddress(p.config.Address), transport.WithCertificatePath(p.config.CertificatePath)}
+		p.svc = transport.New(topts...)
 	}
 
 	return p
@@ -146,24 +109,17 @@ func (p Provider) getFlag(ctx context.Context, namespace, flag string) (*flipt.F
 }
 
 func splitNamespaceAndFlag(src string) (string, string) {
-	var flag, namespace string
-
-	ss := strings.Split(src, "/")
-
-	if len(ss) < 2 {
-		namespace = "default"
-		flag = ss[0]
-	} else {
-		namespace = ss[0]
-		flag = ss[1]
+	ns, flag, found := strings.Cut(src, "/")
+	if found {
+		return ns, flag
 	}
 
-	return flag, namespace
+	return "default", src
 }
 
 // BooleanEvaluation returns a boolean flag.
 func (p Provider) BooleanEvaluation(ctx context.Context, flag string, defaultValue bool, evalCtx of.FlattenedContext) of.BoolResolutionDetail {
-	flagKey, namespace := splitNamespaceAndFlag(flag)
+	namespace, flagKey := splitNamespaceAndFlag(flag)
 
 	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
 	f, res, err := p.getFlag(ctx, namespace, flagKey)
@@ -245,7 +201,7 @@ func (p Provider) BooleanEvaluation(ctx context.Context, flag string, defaultVal
 
 // StringEvaluation returns a string flag.
 func (p Provider) StringEvaluation(ctx context.Context, flag string, defaultValue string, evalCtx of.FlattenedContext) of.StringResolutionDetail {
-	flagKey, namespace := splitNamespaceAndFlag(flag)
+	namespace, flagKey := splitNamespaceAndFlag(flag)
 
 	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
 	f, res, err := p.getFlag(ctx, namespace, flagKey)
@@ -307,7 +263,7 @@ func (p Provider) StringEvaluation(ctx context.Context, flag string, defaultValu
 
 // FloatEvaluation returns a float flag.
 func (p Provider) FloatEvaluation(ctx context.Context, flag string, defaultValue float64, evalCtx of.FlattenedContext) of.FloatResolutionDetail {
-	flagKey, namespace := splitNamespaceAndFlag(flag)
+	namespace, flagKey := splitNamespaceAndFlag(flag)
 
 	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
 	f, res, err := p.getFlag(ctx, namespace, flagKey)
@@ -380,7 +336,7 @@ func (p Provider) FloatEvaluation(ctx context.Context, flag string, defaultValue
 
 // IntEvaluation returns an int flag.
 func (p Provider) IntEvaluation(ctx context.Context, flag string, defaultValue int64, evalCtx of.FlattenedContext) of.IntResolutionDetail {
-	flagKey, namespace := splitNamespaceAndFlag(flag)
+	namespace, flagKey := splitNamespaceAndFlag(flag)
 
 	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
 	f, res, err := p.getFlag(ctx, namespace, flagKey)
@@ -453,7 +409,7 @@ func (p Provider) IntEvaluation(ctx context.Context, flag string, defaultValue i
 
 // ObjectEvaluation returns an object flag with attachment if any. Value is a map of key/value pairs ([string]interface{}).
 func (p Provider) ObjectEvaluation(ctx context.Context, flag string, defaultValue interface{}, evalCtx of.FlattenedContext) of.InterfaceResolutionDetail {
-	flagKey, namespace := splitNamespaceAndFlag(flag)
+	namespace, flagKey := splitNamespaceAndFlag(flag)
 
 	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
 	f, res, err := p.getFlag(ctx, namespace, flagKey)

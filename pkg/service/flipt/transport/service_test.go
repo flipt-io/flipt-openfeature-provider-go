@@ -1,4 +1,4 @@
-package servicegrpc
+package transport
 
 import (
 	"context"
@@ -28,7 +28,7 @@ func TestNew(t *testing.T) {
 		{
 			name: "default",
 			expected: Service{
-				address: "localhost:9000",
+				address: "http://localhost:8080",
 			},
 		},
 		{
@@ -42,15 +42,8 @@ func TestNew(t *testing.T) {
 			name: "with certificate path",
 			opts: []Option{WithCertificatePath("foo")},
 			expected: Service{
-				address:         "localhost:9000",
+				address:         "http://localhost:8080",
 				certificatePath: "foo",
-			},
-		},
-		{
-			name: "with unix address path",
-			opts: []Option{WithAddress("unix://bar")},
-			expected: Service{
-				address: "passthrough:///unix://bar",
 			},
 		},
 	}
