@@ -86,16 +86,16 @@ provider := flipt.NewProvider(flipt.WithAddress("unix:///path/to/socket"))
 #### HTTP/2
 
 ```go
-type Token struct {}
+type Token string
 
-func (t *Token) ClientToken() (string, error) {
-    return "a-client-token", nil
+func (t Token) ClientToken() (string, error) {
+    return t, nil
 }
 
 provider := flipt.NewProvider(
     flipt.WithAddress("grpc://localhost:9000"),
     flipt.WithCertificatePath("/path/to/cert.pem"), // optional
-    flipt.WithClientProvider(&Token{}), // optional
+    flipt.WithClientProvider(Token("a-client-token")), // optional
 )
 ```
 

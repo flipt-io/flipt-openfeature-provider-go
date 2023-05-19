@@ -102,26 +102,6 @@ func (p Provider) Metadata() of.Metadata {
 	return of.Metadata{Name: "flipt-provider"}
 }
 
-func (p Provider) getFlag(ctx context.Context, namespace, flag string) (*flipt.Flag, of.ProviderResolutionDetail, error) {
-	f, err := p.svc.GetFlag(ctx, namespace, flag)
-	if err != nil {
-		var rerr of.ResolutionError
-		if errors.As(err, &rerr) {
-			return nil, of.ProviderResolutionDetail{
-				ResolutionError: rerr,
-				Reason:          of.DefaultReason,
-			}, rerr
-		}
-
-		return nil, of.ProviderResolutionDetail{
-			ResolutionError: of.NewGeneralResolutionError(err.Error()),
-			Reason:          of.DefaultReason,
-		}, fmt.Errorf("failed to get flag: %w", err)
-	}
-
-	return f, of.ProviderResolutionDetail{}, nil
-}
-
 func splitNamespaceAndFlag(src string) (string, string) {
 	ns, flag, found := strings.Cut(src, "/")
 	if found {
@@ -134,24 +114,6 @@ func splitNamespaceAndFlag(src string) (string, string) {
 // BooleanEvaluation returns a boolean flag.
 func (p Provider) BooleanEvaluation(ctx context.Context, flag string, defaultValue bool, evalCtx of.FlattenedContext) of.BoolResolutionDetail {
 	namespace, flagKey := splitNamespaceAndFlag(flag)
-
-	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
-	f, res, err := p.getFlag(ctx, namespace, flagKey)
-	if err != nil {
-		return of.BoolResolutionDetail{
-			Value:                    defaultValue,
-			ProviderResolutionDetail: res,
-		}
-	}
-
-	if !f.Enabled {
-		return of.BoolResolutionDetail{
-			Value: defaultValue,
-			ProviderResolutionDetail: of.ProviderResolutionDetail{
-				Reason: of.DisabledReason,
-			},
-		}
-	}
 
 	resp, err := p.svc.Evaluate(ctx, namespace, flagKey, evalCtx)
 	if err != nil {
@@ -174,6 +136,15 @@ func (p Provider) BooleanEvaluation(ctx context.Context, flag string, defaultVal
 		detail.ProviderResolutionDetail.ResolutionError = of.NewGeneralResolutionError(err.Error())
 
 		return detail
+	}
+
+	if resp.Reason == flipt.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON {
+		return of.BoolResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: of.ProviderResolutionDetail{
+				Reason: of.DisabledReason,
+			},
+		}
 	}
 
 	if !resp.Match {
@@ -217,24 +188,6 @@ func (p Provider) BooleanEvaluation(ctx context.Context, flag string, defaultVal
 func (p Provider) StringEvaluation(ctx context.Context, flag string, defaultValue string, evalCtx of.FlattenedContext) of.StringResolutionDetail {
 	namespace, flagKey := splitNamespaceAndFlag(flag)
 
-	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
-	f, res, err := p.getFlag(ctx, namespace, flagKey)
-	if err != nil {
-		return of.StringResolutionDetail{
-			Value:                    defaultValue,
-			ProviderResolutionDetail: res,
-		}
-	}
-
-	if !f.Enabled {
-		return of.StringResolutionDetail{
-			Value: defaultValue,
-			ProviderResolutionDetail: of.ProviderResolutionDetail{
-				Reason: of.DisabledReason,
-			},
-		}
-	}
-
 	resp, err := p.svc.Evaluate(ctx, namespace, flagKey, evalCtx)
 	if err != nil {
 		var (
@@ -258,6 +211,15 @@ func (p Provider) StringEvaluation(ctx context.Context, flag string, defaultValu
 		return detail
 	}
 
+	if resp.Reason == flipt.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON {
+		return of.StringResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: of.ProviderResolutionDetail{
+				Reason: of.DisabledReason,
+			},
+		}
+	}
+
 	if !resp.Match {
 		return of.StringResolutionDetail{
 			Value: defaultValue,
@@ -278,24 +240,6 @@ func (p Provider) StringEvaluation(ctx context.Context, flag string, defaultValu
 // FloatEvaluation returns a float flag.
 func (p Provider) FloatEvaluation(ctx context.Context, flag string, defaultValue float64, evalCtx of.FlattenedContext) of.FloatResolutionDetail {
 	namespace, flagKey := splitNamespaceAndFlag(flag)
-
-	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
-	f, res, err := p.getFlag(ctx, namespace, flagKey)
-	if err != nil {
-		return of.FloatResolutionDetail{
-			Value:                    defaultValue,
-			ProviderResolutionDetail: res,
-		}
-	}
-
-	if !f.Enabled {
-		return of.FloatResolutionDetail{
-			Value: defaultValue,
-			ProviderResolutionDetail: of.ProviderResolutionDetail{
-				Reason: of.DisabledReason,
-			},
-		}
-	}
 
 	resp, err := p.svc.Evaluate(ctx, namespace, flagKey, evalCtx)
 	if err != nil {
@@ -318,6 +262,15 @@ func (p Provider) FloatEvaluation(ctx context.Context, flag string, defaultValue
 		detail.ProviderResolutionDetail.ResolutionError = of.NewGeneralResolutionError(err.Error())
 
 		return detail
+	}
+
+	if resp.Reason == flipt.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON {
+		return of.FloatResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: of.ProviderResolutionDetail{
+				Reason: of.DisabledReason,
+			},
+		}
 	}
 
 	if !resp.Match {
@@ -352,24 +305,6 @@ func (p Provider) FloatEvaluation(ctx context.Context, flag string, defaultValue
 func (p Provider) IntEvaluation(ctx context.Context, flag string, defaultValue int64, evalCtx of.FlattenedContext) of.IntResolutionDetail {
 	namespace, flagKey := splitNamespaceAndFlag(flag)
 
-	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
-	f, res, err := p.getFlag(ctx, namespace, flagKey)
-	if err != nil {
-		return of.IntResolutionDetail{
-			Value:                    defaultValue,
-			ProviderResolutionDetail: res,
-		}
-	}
-
-	if !f.Enabled {
-		return of.IntResolutionDetail{
-			Value: defaultValue,
-			ProviderResolutionDetail: of.ProviderResolutionDetail{
-				Reason: of.DisabledReason,
-			},
-		}
-	}
-
 	resp, err := p.svc.Evaluate(ctx, namespace, flagKey, evalCtx)
 	if err != nil {
 		var (
@@ -391,6 +326,15 @@ func (p Provider) IntEvaluation(ctx context.Context, flag string, defaultValue i
 		detail.ProviderResolutionDetail.ResolutionError = of.NewGeneralResolutionError(err.Error())
 
 		return detail
+	}
+
+	if resp.Reason == flipt.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON {
+		return of.IntResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: of.ProviderResolutionDetail{
+				Reason: of.DisabledReason,
+			},
+		}
 	}
 
 	if !resp.Match {
@@ -425,24 +369,6 @@ func (p Provider) IntEvaluation(ctx context.Context, flag string, defaultValue i
 func (p Provider) ObjectEvaluation(ctx context.Context, flag string, defaultValue interface{}, evalCtx of.FlattenedContext) of.InterfaceResolutionDetail {
 	namespace, flagKey := splitNamespaceAndFlag(flag)
 
-	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
-	f, res, err := p.getFlag(ctx, namespace, flagKey)
-	if err != nil {
-		return of.InterfaceResolutionDetail{
-			Value:                    defaultValue,
-			ProviderResolutionDetail: res,
-		}
-	}
-
-	if !f.Enabled {
-		return of.InterfaceResolutionDetail{
-			Value: defaultValue,
-			ProviderResolutionDetail: of.ProviderResolutionDetail{
-				Reason: of.DisabledReason,
-			},
-		}
-	}
-
 	resp, err := p.svc.Evaluate(ctx, namespace, flagKey, evalCtx)
 	if err != nil {
 		var (
@@ -464,6 +390,15 @@ func (p Provider) ObjectEvaluation(ctx context.Context, flag string, defaultValu
 		detail.ProviderResolutionDetail.ResolutionError = of.NewGeneralResolutionError(err.Error())
 
 		return detail
+	}
+
+	if resp.Reason == flipt.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON {
+		return of.InterfaceResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: of.ProviderResolutionDetail{
+				Reason: of.DisabledReason,
+			},
+		}
 	}
 
 	if !resp.Match {
