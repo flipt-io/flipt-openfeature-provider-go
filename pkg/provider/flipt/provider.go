@@ -183,7 +183,6 @@ func (p Provider) BooleanEvaluation(ctx context.Context, flag string, defaultVal
 
 // StringEvaluation returns a string flag.
 func (p Provider) StringEvaluation(ctx context.Context, flag string, defaultValue string, evalCtx of.FlattenedContext) of.StringResolutionDetail {
-
 	resp, err := p.svc.Evaluate(ctx, p.config.Namespace, flag, evalCtx)
 	if err != nil {
 		var (
