@@ -10,7 +10,6 @@ import (
 func Example() {
 	openfeature.SetProvider(flipt.NewProvider(
 		flipt.WithAddress("localhost:9000"),
-		flipt.WithServiceType(flipt.ServiceTypeGRPC),
 	))
 
 	client := openfeature.NewClient("my-app")
