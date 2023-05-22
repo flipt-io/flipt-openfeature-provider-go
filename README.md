@@ -67,7 +67,7 @@ func main() {
 
 ## Configuration
 
-The Flipt provider allows you communicate with Flipt over either HTTP(S) or GRPC, depending on the address provided.
+The Flipt provider allows you to communicate with Flipt over either HTTP(S) or GRPC, depending on the address provided.
 
 ### HTTP(S)
 

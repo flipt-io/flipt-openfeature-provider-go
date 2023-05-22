@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
 	"go.flipt.io/flipt-openfeature-provider/pkg/service/flipt/transport"
@@ -22,6 +21,7 @@ type Config struct {
 	Address         string
 	CertificatePath string
 	TokenProvider   sdk.ClientTokenProvider
+	Namespace       string
 }
 
 // Option is a configuration option for the provider.
@@ -63,10 +63,18 @@ func WithClientTokenProvider(tokenProvider sdk.ClientTokenProvider) Option {
 	}
 }
 
+// ForNamespace sets the namespace for flag lookup and evaluation in Flipt.
+func ForNamespace(namespace string) Option {
+	return func(p *Provider) {
+		p.config.Namespace = namespace
+	}
+}
+
 // NewProvider returns a new Flipt provider.
 func NewProvider(opts ...Option) *Provider {
 	p := &Provider{config: Config{
-		Address: "http://localhost:8080",
+		Address:   "http://localhost:8080",
+		Namespace: "default",
 	}}
 
 	for _, opt := range opts {
@@ -102,20 +110,9 @@ func (p Provider) Metadata() of.Metadata {
 	return of.Metadata{Name: "flipt-provider"}
 }
 
-func splitNamespaceAndFlag(src string) (string, string) {
-	ns, flag, found := strings.Cut(src, "/")
-	if found {
-		return ns, flag
-	}
-
-	return "default", src
-}
-
 // BooleanEvaluation returns a boolean flag.
 func (p Provider) BooleanEvaluation(ctx context.Context, flag string, defaultValue bool, evalCtx of.FlattenedContext) of.BoolResolutionDetail {
-	namespace, flagKey := splitNamespaceAndFlag(flag)
-
-	resp, err := p.svc.Evaluate(ctx, namespace, flagKey, evalCtx)
+	resp, err := p.svc.Evaluate(ctx, p.config.Namespace, flag, evalCtx)
 	if err != nil {
 		var (
 			rerr   of.ResolutionError
@@ -186,9 +183,8 @@ func (p Provider) BooleanEvaluation(ctx context.Context, flag string, defaultVal
 
 // StringEvaluation returns a string flag.
 func (p Provider) StringEvaluation(ctx context.Context, flag string, defaultValue string, evalCtx of.FlattenedContext) of.StringResolutionDetail {
-	namespace, flagKey := splitNamespaceAndFlag(flag)
 
-	resp, err := p.svc.Evaluate(ctx, namespace, flagKey, evalCtx)
+	resp, err := p.svc.Evaluate(ctx, p.config.Namespace, flag, evalCtx)
 	if err != nil {
 		var (
 			rerr   of.ResolutionError
@@ -239,9 +235,7 @@ func (p Provider) StringEvaluation(ctx context.Context, flag string, defaultValu
 
 // FloatEvaluation returns a float flag.
 func (p Provider) FloatEvaluation(ctx context.Context, flag string, defaultValue float64, evalCtx of.FlattenedContext) of.FloatResolutionDetail {
-	namespace, flagKey := splitNamespaceAndFlag(flag)
-
-	resp, err := p.svc.Evaluate(ctx, namespace, flagKey, evalCtx)
+	resp, err := p.svc.Evaluate(ctx, p.config.Namespace, flag, evalCtx)
 	if err != nil {
 		var (
 			rerr   of.ResolutionError
@@ -303,9 +297,7 @@ func (p Provider) FloatEvaluation(ctx context.Context, flag string, defaultValue
 
 // IntEvaluation returns an int flag.
 func (p Provider) IntEvaluation(ctx context.Context, flag string, defaultValue int64, evalCtx of.FlattenedContext) of.IntResolutionDetail {
-	namespace, flagKey := splitNamespaceAndFlag(flag)
-
-	resp, err := p.svc.Evaluate(ctx, namespace, flagKey, evalCtx)
+	resp, err := p.svc.Evaluate(ctx, p.config.Namespace, flag, evalCtx)
 	if err != nil {
 		var (
 			rerr   of.ResolutionError
@@ -367,9 +359,7 @@ func (p Provider) IntEvaluation(ctx context.Context, flag string, defaultValue i
 
 // ObjectEvaluation returns an object flag with attachment if any. Value is a map of key/value pairs ([string]interface{}).
 func (p Provider) ObjectEvaluation(ctx context.Context, flag string, defaultValue interface{}, evalCtx of.FlattenedContext) of.InterfaceResolutionDetail {
-	namespace, flagKey := splitNamespaceAndFlag(flag)
-
-	resp, err := p.svc.Evaluate(ctx, namespace, flagKey, evalCtx)
+	resp, err := p.svc.Evaluate(ctx, p.config.Namespace, flag, evalCtx)
 	if err != nil {
 		var (
 			rerr   of.ResolutionError
