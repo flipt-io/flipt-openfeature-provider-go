@@ -14,7 +14,7 @@ jobs:
 
       - uses: actions/setup-go@v3
         with:
-          go-version: "1.18"
+          go-version: "1.20"
           check-latest: true
           cache: true
 
@@ -22,7 +22,7 @@ jobs:
         uses: golangci/golangci-lint-action@v3.2.0
         with:
           # Required: the version of golangci-lint is required and must be specified without patch version: we always use the latest patch version.
-          version: v1.49
+          version: v1.51
           skip-pkg-cache: true
           skip-build-cache: true
           args: --timeout=10m
@@ -44,7 +44,7 @@ jobs:
 
       - uses: actions/setup-go@v3
         with:
-          go-version: "1.18"
+          go-version: "1.20"
           check-latest: true
           cache: true
 

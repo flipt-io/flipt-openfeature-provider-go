@@ -1,63 +1,48 @@
-package servicegrpc
+package transport
 
 import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
 
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
-	"go.flipt.io/flipt-grpc"
+	offlipt "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt"
+	"go.flipt.io/flipt-openfeature-provider/pkg/service/flipt/util"
+	flipt "go.flipt.io/flipt/rpc/flipt"
+	sdk "go.flipt.io/flipt/sdk/go"
+	sdkgrpc "go.flipt.io/flipt/sdk/go/grpc"
+	sdkhttp "go.flipt.io/flipt/sdk/go/http"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
 )
 
 const (
 	requestID   = "requestID"
-	defaultAddr = "localhost:9000"
+	defaultAddr = "http://localhost:8080"
 )
 
-//go:generate mockery --name=grpcClient --case=underscore --inpackage --filename=service_support_test.go --testonly --with-expecter --disable-version-string
-
-type grpcClient interface {
-	GetFlag(ctx context.Context, in *flipt.GetFlagRequest, opts ...grpc.CallOption) (*flipt.Flag, error)
-	Evaluate(ctx context.Context, in *flipt.EvaluationRequest, opts ...grpc.CallOption) (*flipt.EvaluationResponse, error)
-}
-
-// Service is a GRPC service.
+// Service is a Transport service.
 type Service struct {
-	client            grpcClient
+	client            offlipt.Client
 	address           string
 	certificatePath   string
 	unaryInterceptors []grpc.UnaryClientInterceptor
 	once              sync.Once
+	tokenProvider     sdk.ClientTokenProvider
 }
 
 // Option is a service option.
 type Option func(*Service)
 
-// WithGRPCClient sets the GRPC client to use.
-func WithGRPCClient(client grpcClient) Option {
-	return func(s *Service) {
-		if client != nil {
-			s.client = client
-		}
-	}
-}
-
 // WithAddress sets the address for the remote Flipt gRPC API.
 func WithAddress(address string) Option {
-	if strings.HasPrefix(address, "unix://") {
-		address = "passthrough:///" + address
-	}
-
 	return func(s *Service) {
 		s.address = address
 	}
@@ -78,7 +63,15 @@ func WithUnaryClientInterceptor(unaryInterceptors ...grpc.UnaryClientInterceptor
 	}
 }
 
-// New creates a new GRPC service.
+// WithClientTokenProvider sets the token provider for auth to support client
+// auth needs.
+func WithClientTokenProvider(tokenProvider sdk.ClientTokenProvider) Option {
+	return func(s *Service) {
+		s.tokenProvider = tokenProvider
+	}
+}
+
+// New creates a new Transport service.
 func New(opts ...Option) *Service {
 	s := &Service{
 		address: defaultAddr,
@@ -110,8 +103,14 @@ func (s *Service) connect() (*grpc.ClientConn, error) {
 		}
 	}
 
+	var address = s.address
+
+	if strings.HasPrefix(s.address, "unix://") {
+		address = "passthrough:///" + s.address
+	}
+
 	conn, err := grpc.Dial(
-		s.address,
+		address,
 		grpc.WithTransportCredentials(credentials),
 		grpc.WithBlock(),
 		grpc.WithChainUnaryInterceptor(s.unaryInterceptors...),
@@ -123,7 +122,7 @@ func (s *Service) connect() (*grpc.ClientConn, error) {
 	return conn, nil
 }
 
-func (s *Service) instance() (grpcClient, error) {
+func (s *Service) instance() (offlipt.Client, error) {
 	if s.client != nil {
 		return s.client, nil
 	}
@@ -131,39 +130,54 @@ func (s *Service) instance() (grpcClient, error) {
 	var err error
 
 	s.once.Do(func() {
+		u, uerr := url.Parse(s.address)
+		if uerr != nil {
+			err = fmt.Errorf("connecting %w", uerr)
+		}
+
+		opts := []sdk.Option{}
+
+		if s.tokenProvider != nil {
+			opts = append(opts, sdk.WithClientTokenProvider(s.tokenProvider))
+		}
+
+		if u.Scheme == "https" || u.Scheme == "http" {
+			s.client = sdk.New(sdkhttp.NewTransport(s.address), opts...).Flipt()
+
+			return
+		}
+
 		conn, cerr := s.connect()
 		if cerr != nil {
 			err = fmt.Errorf("connecting %w", cerr)
 		}
 
-		s.client = flipt.NewFliptClient(conn)
+		s.client = sdk.New(sdkgrpc.NewTransport(conn), opts...).Flipt()
 	})
 
 	return s.client, err
 }
 
-// GetFlag returns a flag if it exists for the given key.
-func (s *Service) GetFlag(ctx context.Context, flagKey string) (*flipt.Flag, error) {
+// GetFlag returns a flag if it exists for the given namespace/flag key pair.
+func (s *Service) GetFlag(ctx context.Context, namespaceKey, flagKey string) (*flipt.Flag, error) {
 	conn, err := s.instance()
 	if err != nil {
 		return nil, err
 	}
 
-	f, err := conn.GetFlag(ctx, &flipt.GetFlagRequest{Key: flagKey})
-
+	flag, err := conn.GetFlag(ctx, &flipt.GetFlagRequest{
+		Key:          flagKey,
+		NamespaceKey: namespaceKey,
+	})
 	if err != nil {
-		if s, ok := status.FromError(err); ok {
-			return nil, grpcToOpenFeatureError(*s)
-		}
-
-		return nil, fmt.Errorf("getting flag %q %w", flagKey, err)
+		return nil, util.GRPCToOpenFeatureError(err)
 	}
 
-	return f, nil
+	return flag, nil
 }
 
-// Evaluate evaluates a flag with the given context.
-func (s *Service) Evaluate(ctx context.Context, flagKey string, evalCtx map[string]interface{}) (*flipt.EvaluationResponse, error) {
+// Evaluate evaluates a flag with the given context and namespace/flag key pair.
+func (s *Service) Evaluate(ctx context.Context, namespaceKey, flagKey string, evalCtx map[string]interface{}) (*flipt.EvaluationResponse, error) {
 	if evalCtx == nil {
 		return nil, of.NewInvalidContextResolutionError("evalCtx is nil")
 	}
@@ -180,14 +194,9 @@ func (s *Service) Evaluate(ctx context.Context, flagKey string, evalCtx map[stri
 		return nil, err
 	}
 
-	resp, err := conn.Evaluate(ctx, &flipt.EvaluationRequest{FlagKey: flagKey, EntityId: targetingKey, RequestId: ec[requestID], Context: ec})
-
+	resp, err := conn.Evaluate(ctx, &flipt.EvaluationRequest{FlagKey: flagKey, NamespaceKey: namespaceKey, EntityId: targetingKey, RequestId: ec[requestID], Context: ec})
 	if err != nil {
-		if s, ok := status.FromError(err); ok {
-			return nil, grpcToOpenFeatureError(*s)
-		}
-
-		return nil, fmt.Errorf("evaluating flag %q %w", flagKey, err)
+		return nil, util.GRPCToOpenFeatureError(err)
 	}
 
 	return resp, nil
@@ -200,19 +209,6 @@ func convertMapInterface(m map[string]interface{}) map[string]string {
 	}
 
 	return ee
-}
-
-func grpcToOpenFeatureError(s status.Status) of.ResolutionError {
-	switch s.Code() {
-	case codes.NotFound:
-		return of.NewFlagNotFoundResolutionError(s.Message())
-	case codes.InvalidArgument:
-		return of.NewInvalidContextResolutionError(s.Message())
-	case codes.Unavailable:
-		return of.NewProviderNotReadyResolutionError(s.Message())
-	}
-
-	return of.NewGeneralResolutionError(s.Message())
 }
 
 func loadTLSCredentials(serverCertPath string) (credentials.TransportCredentials, error) {

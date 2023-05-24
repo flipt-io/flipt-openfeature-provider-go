@@ -7,9 +7,9 @@ import (
 	"strconv"
 
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
-	"go.flipt.io/flipt-grpc"
-	serviceGRPC "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt/grpc"
-	serviceHTTP "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt/http"
+	"go.flipt.io/flipt-openfeature-provider/pkg/service/flipt/transport"
+	flipt "go.flipt.io/flipt/rpc/flipt"
+	sdk "go.flipt.io/flipt/sdk/go"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -18,41 +18,14 @@ var _ of.FeatureProvider = (*Provider)(nil)
 
 // Config is a configuration for the FliptProvider.
 type Config struct {
-	ServiceType     ServiceType
 	Address         string
 	CertificatePath string
-}
-
-// ServiceType is the type of service.
-type ServiceType int
-
-const (
-	// ServiceTypeHTTP argument, this is the default value.
-	ServiceTypeHTTP ServiceType = iota + 1
-	// ServiceTypeGRPC argument, overrides the default value of http.
-	ServiceTypeGRPC
-)
-
-func (s ServiceType) String() string {
-	switch s {
-	case ServiceTypeHTTP:
-		return "http"
-	case ServiceTypeGRPC:
-		return "grpc"
-	default:
-		return "unknown"
-	}
+	TokenProvider   sdk.ClientTokenProvider
+	Namespace       string
 }
 
 // Option is a configuration option for the provider.
 type Option func(*Provider)
-
-// WithServiceType is an Option to set the service type.
-func WithServiceType(serviceType ServiceType) Option {
-	return func(p *Provider) {
-		p.config.ServiceType = serviceType
-	}
-}
 
 // WithAddress sets the address for the remote Flipt gRPC or HTTP API.
 func WithAddress(address string) Option {
@@ -75,18 +48,33 @@ func WithConfig(config Config) Option {
 	}
 }
 
-// WithService is an Option to override the service implementation.
+// WithService is an Option to set the service for the Provider.
 func WithService(svc Service) Option {
 	return func(p *Provider) {
 		p.svc = svc
 	}
 }
 
+// WithClientTokenProvider sets the token provider for auth to support client
+// auth needs.
+func WithClientTokenProvider(tokenProvider sdk.ClientTokenProvider) Option {
+	return func(p *Provider) {
+		p.config.TokenProvider = tokenProvider
+	}
+}
+
+// ForNamespace sets the namespace for flag lookup and evaluation in Flipt.
+func ForNamespace(namespace string) Option {
+	return func(p *Provider) {
+		p.config.Namespace = namespace
+	}
+}
+
 // NewProvider returns a new Flipt provider.
 func NewProvider(opts ...Option) *Provider {
 	p := &Provider{config: Config{
-		ServiceType: ServiceTypeHTTP,
-		Address:     "http://localhost:8080",
+		Address:   "http://localhost:8080",
+		Namespace: "default",
 	}}
 
 	for _, opt := range opts {
@@ -94,23 +82,21 @@ func NewProvider(opts ...Option) *Provider {
 	}
 
 	if p.svc == nil {
-		switch p.config.ServiceType {
-		case ServiceTypeHTTP:
-			opts := []serviceHTTP.Option{serviceHTTP.WithAddress(p.config.Address)}
-			p.svc = serviceHTTP.New(opts...)
-		case ServiceTypeGRPC:
-			opts := []serviceGRPC.Option{serviceGRPC.WithAddress(p.config.Address), serviceGRPC.WithCertificatePath(p.config.CertificatePath)}
-			p.svc = serviceGRPC.New(opts...)
+		topts := []transport.Option{transport.WithAddress(p.config.Address), transport.WithCertificatePath(p.config.CertificatePath)}
+		if p.config.TokenProvider != nil {
+			topts = append(topts, transport.WithClientTokenProvider(p.config.TokenProvider))
 		}
+
+		p.svc = transport.New(topts...)
 	}
 
 	return p
 }
 
-//go:generate mockery --name=Service --structname=mockService --case=underscore --output=. --outpkg=flipt --filename=provider_support_test.go --testonly --with-expecter --disable-version-string
+//go:generate mockery --name=Service --structname=mockService --case=underscore --output=. --outpkg=flipt --filename=provider_support.go --testonly --with-expecter --disable-version-string
 type Service interface {
-	GetFlag(ctx context.Context, flagKey string) (*flipt.Flag, error)
-	Evaluate(ctx context.Context, flagKey string, evalCtx map[string]interface{}) (*flipt.EvaluationResponse, error)
+	GetFlag(ctx context.Context, namespaceKey, flagKey string) (*flipt.Flag, error)
+	Evaluate(ctx context.Context, namespaceKey, flagKey string, evalCtx map[string]interface{}) (*flipt.EvaluationResponse, error)
 }
 
 // Provider implements the FeatureProvider interface and provides functions for evaluating flags with Flipt.
@@ -124,46 +110,9 @@ func (p Provider) Metadata() of.Metadata {
 	return of.Metadata{Name: "flipt-provider"}
 }
 
-func (p Provider) getFlag(ctx context.Context, flag string) (*flipt.Flag, of.ProviderResolutionDetail, error) {
-	f, err := p.svc.GetFlag(ctx, flag)
-	if err != nil {
-		var rerr of.ResolutionError
-		if errors.As(err, &rerr) {
-			return nil, of.ProviderResolutionDetail{
-				ResolutionError: rerr,
-				Reason:          of.DefaultReason,
-			}, rerr
-		}
-
-		return nil, of.ProviderResolutionDetail{
-			ResolutionError: of.NewGeneralResolutionError(err.Error()),
-			Reason:          of.DefaultReason,
-		}, fmt.Errorf("failed to get flag: %w", err)
-	}
-
-	return f, of.ProviderResolutionDetail{}, nil
-}
-
 // BooleanEvaluation returns a boolean flag.
 func (p Provider) BooleanEvaluation(ctx context.Context, flag string, defaultValue bool, evalCtx of.FlattenedContext) of.BoolResolutionDetail {
-	f, res, err := p.getFlag(ctx, flag)
-	if err != nil {
-		return of.BoolResolutionDetail{
-			Value:                    defaultValue,
-			ProviderResolutionDetail: res,
-		}
-	}
-
-	if !f.Enabled {
-		return of.BoolResolutionDetail{
-			Value: defaultValue,
-			ProviderResolutionDetail: of.ProviderResolutionDetail{
-				Reason: of.DisabledReason,
-			},
-		}
-	}
-
-	resp, err := p.svc.Evaluate(ctx, flag, evalCtx)
+	resp, err := p.svc.Evaluate(ctx, p.config.Namespace, flag, evalCtx)
 	if err != nil {
 		var (
 			rerr   of.ResolutionError
@@ -184,6 +133,15 @@ func (p Provider) BooleanEvaluation(ctx context.Context, flag string, defaultVal
 		detail.ProviderResolutionDetail.ResolutionError = of.NewGeneralResolutionError(err.Error())
 
 		return detail
+	}
+
+	if resp.Reason == flipt.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON {
+		return of.BoolResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: of.ProviderResolutionDetail{
+				Reason: of.DisabledReason,
+			},
+		}
 	}
 
 	if !resp.Match {
@@ -225,25 +183,7 @@ func (p Provider) BooleanEvaluation(ctx context.Context, flag string, defaultVal
 
 // StringEvaluation returns a string flag.
 func (p Provider) StringEvaluation(ctx context.Context, flag string, defaultValue string, evalCtx of.FlattenedContext) of.StringResolutionDetail {
-	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
-	f, res, err := p.getFlag(ctx, flag)
-	if err != nil {
-		return of.StringResolutionDetail{
-			Value:                    defaultValue,
-			ProviderResolutionDetail: res,
-		}
-	}
-
-	if !f.Enabled {
-		return of.StringResolutionDetail{
-			Value: defaultValue,
-			ProviderResolutionDetail: of.ProviderResolutionDetail{
-				Reason: of.DisabledReason,
-			},
-		}
-	}
-
-	resp, err := p.svc.Evaluate(ctx, flag, evalCtx)
+	resp, err := p.svc.Evaluate(ctx, p.config.Namespace, flag, evalCtx)
 	if err != nil {
 		var (
 			rerr   of.ResolutionError
@@ -266,6 +206,15 @@ func (p Provider) StringEvaluation(ctx context.Context, flag string, defaultValu
 		return detail
 	}
 
+	if resp.Reason == flipt.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON {
+		return of.StringResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: of.ProviderResolutionDetail{
+				Reason: of.DisabledReason,
+			},
+		}
+	}
+
 	if !resp.Match {
 		return of.StringResolutionDetail{
 			Value: defaultValue,
@@ -285,25 +234,7 @@ func (p Provider) StringEvaluation(ctx context.Context, flag string, defaultValu
 
 // FloatEvaluation returns a float flag.
 func (p Provider) FloatEvaluation(ctx context.Context, flag string, defaultValue float64, evalCtx of.FlattenedContext) of.FloatResolutionDetail {
-	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
-	f, res, err := p.getFlag(ctx, flag)
-	if err != nil {
-		return of.FloatResolutionDetail{
-			Value:                    defaultValue,
-			ProviderResolutionDetail: res,
-		}
-	}
-
-	if !f.Enabled {
-		return of.FloatResolutionDetail{
-			Value: defaultValue,
-			ProviderResolutionDetail: of.ProviderResolutionDetail{
-				Reason: of.DisabledReason,
-			},
-		}
-	}
-
-	resp, err := p.svc.Evaluate(ctx, flag, evalCtx)
+	resp, err := p.svc.Evaluate(ctx, p.config.Namespace, flag, evalCtx)
 	if err != nil {
 		var (
 			rerr   of.ResolutionError
@@ -324,6 +255,15 @@ func (p Provider) FloatEvaluation(ctx context.Context, flag string, defaultValue
 		detail.ProviderResolutionDetail.ResolutionError = of.NewGeneralResolutionError(err.Error())
 
 		return detail
+	}
+
+	if resp.Reason == flipt.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON {
+		return of.FloatResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: of.ProviderResolutionDetail{
+				Reason: of.DisabledReason,
+			},
+		}
 	}
 
 	if !resp.Match {
@@ -356,25 +296,7 @@ func (p Provider) FloatEvaluation(ctx context.Context, flag string, defaultValue
 
 // IntEvaluation returns an int flag.
 func (p Provider) IntEvaluation(ctx context.Context, flag string, defaultValue int64, evalCtx of.FlattenedContext) of.IntResolutionDetail {
-	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
-	f, res, err := p.getFlag(ctx, flag)
-	if err != nil {
-		return of.IntResolutionDetail{
-			Value:                    defaultValue,
-			ProviderResolutionDetail: res,
-		}
-	}
-
-	if !f.Enabled {
-		return of.IntResolutionDetail{
-			Value: defaultValue,
-			ProviderResolutionDetail: of.ProviderResolutionDetail{
-				Reason: of.DisabledReason,
-			},
-		}
-	}
-
-	resp, err := p.svc.Evaluate(ctx, flag, evalCtx)
+	resp, err := p.svc.Evaluate(ctx, p.config.Namespace, flag, evalCtx)
 	if err != nil {
 		var (
 			rerr   of.ResolutionError
@@ -395,6 +317,15 @@ func (p Provider) IntEvaluation(ctx context.Context, flag string, defaultValue i
 		detail.ProviderResolutionDetail.ResolutionError = of.NewGeneralResolutionError(err.Error())
 
 		return detail
+	}
+
+	if resp.Reason == flipt.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON {
+		return of.IntResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: of.ProviderResolutionDetail{
+				Reason: of.DisabledReason,
+			},
+		}
 	}
 
 	if !resp.Match {
@@ -427,25 +358,7 @@ func (p Provider) IntEvaluation(ctx context.Context, flag string, defaultValue i
 
 // ObjectEvaluation returns an object flag with attachment if any. Value is a map of key/value pairs ([string]interface{}).
 func (p Provider) ObjectEvaluation(ctx context.Context, flag string, defaultValue interface{}, evalCtx of.FlattenedContext) of.InterfaceResolutionDetail {
-	// TODO: we have to check if the flag is enabled here until https://github.com/flipt-io/flipt/issues/1060 is resolved
-	f, res, err := p.getFlag(ctx, flag)
-	if err != nil {
-		return of.InterfaceResolutionDetail{
-			Value:                    defaultValue,
-			ProviderResolutionDetail: res,
-		}
-	}
-
-	if !f.Enabled {
-		return of.InterfaceResolutionDetail{
-			Value: defaultValue,
-			ProviderResolutionDetail: of.ProviderResolutionDetail{
-				Reason: of.DisabledReason,
-			},
-		}
-	}
-
-	resp, err := p.svc.Evaluate(ctx, flag, evalCtx)
+	resp, err := p.svc.Evaluate(ctx, p.config.Namespace, flag, evalCtx)
 	if err != nil {
 		var (
 			rerr   of.ResolutionError
@@ -466,6 +379,15 @@ func (p Provider) ObjectEvaluation(ctx context.Context, flag string, defaultValu
 		detail.ProviderResolutionDetail.ResolutionError = of.NewGeneralResolutionError(err.Error())
 
 		return detail
+	}
+
+	if resp.Reason == flipt.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON {
+		return of.InterfaceResolutionDetail{
+			Value: defaultValue,
+			ProviderResolutionDetail: of.ProviderResolutionDetail{
+				Reason: of.DisabledReason,
+			},
+		}
 	}
 
 	if !resp.Match {

@@ -1,7 +1,17 @@
 # Changelog
 
-## [0.1.4](https://github.com/flipt-io/flipt-openfeature-provider-go/compare/v0.1.3...v0.1.4) (2022-11-02)
+## [0.1.5](https://github.com/flipt-io/flipt-openfeature-provider-go/compare/v0.1.4...v0.1.5) (2023-05-24)
 
+### Features
+
+* remove transport details from user and determine the transport under the hood ([a8a04a9](https://github.com/flipt-io/flipt-openfeature-provider-go/commit/a8a04a9fff502089a310ad6fce11ef777a3d6af5))
+* use flipt sdk for openfeature interactions, and include new namespace client ([ce1fe31](https://github.com/flipt-io/flipt-openfeature-provider-go/commit/ce1fe31ae0b0ac9b37ffdde32a9ceb79c9d0d2c6))
+
+### Bug Fixes
+
+* remove getFlag to subtract extra network hop ([9f6b53d](https://github.com/flipt-io/flipt-openfeature-provider-go/commit/9f6b53d0aaf408d5b00146379b79101d2402155d))
+
+## [0.1.4](https://github.com/flipt-io/flipt-openfeature-provider-go/compare/v0.1.3...v0.1.4) (2022-11-02)
 
 ### Bug Fixes
 
@@ -9,13 +19,11 @@
 
 ## [0.1.3](https://github.com/flipt-io/flipt-openfeature-provider-go/compare/v0.1.2...v0.1.3) (2022-11-01)
 
-
 ### Features
 
 * **otel:** propagate trace context through grpc and http client ([#12](https://github.com/flipt-io/flipt-openfeature-provider-go/issues/12)) ([47897df](https://github.com/flipt-io/flipt-openfeature-provider-go/commit/47897dfffdb1b62677399d35e129d02b1ea359e9))
 
 ## [0.1.2](https://github.com/flipt-io/flipt-openfeature-provider-go/compare/v0.1.1...v0.1.2) (2022-10-31)
-
 
 ### Bug Fixes
 
@@ -23,13 +31,11 @@
 
 ## [0.1.1](https://github.com/flipt-io/flipt-openfeature-provider-go/compare/v0.1.0...v0.1.1) (2022-10-28)
 
-
 ### Bug Fixes
 
 * fix bool eval reason, fix cover task, more test coverage ([#7](https://github.com/flipt-io/flipt-openfeature-provider-go/issues/7)) ([eca4aef](https://github.com/flipt-io/flipt-openfeature-provider-go/commit/eca4aefd2bab5188829e7bfde5c0d8234ecccb2b))
 
 ## 0.1.0 (2022-10-27)
-
 
 ### Miscellaneous Chores
 
