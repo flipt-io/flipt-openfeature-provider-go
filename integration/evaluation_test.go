@@ -652,11 +652,11 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the resolved flag value is "([^"]*)" when the context is empty$`, theResolvedFlagValueIsWhenTheContextIsEmpty)
 
 	ctx.Step(`^a non-existent string flag with key "([^"]*)" is evaluated with details and a default value "([^"]*)"$`, aNonexistentStringFlagWithKeyIsEvaluatedWithDetailsAndADefaultValue)
-	ctx.Step(`^then the default string value should be returned$`, theDefaultStringValueShouldBeReturned)
+	ctx.Step(`^the default string value should be returned$`, theDefaultStringValueShouldBeReturned)
 	ctx.Step(`^the reason should indicate an error and the error code should indicate a missing flag with "([^"]*)"$`, theReasonShouldIndicateAnErrorAndTheErrorCodeShouldIndicateAMissingFlagWith)
 
 	ctx.Step(`^a string flag with key "([^"]*)" is evaluated as an integer, with details and a default value (\d+)$`, aStringFlagWithKeyIsEvaluatedAsAnIntegerWithDetailsAndADefaultValue)
-	ctx.Step(`^then the default integer value should be returned$`, theDefaultIntegerValueShouldBeReturned)
+	ctx.Step(`^the default integer value should be returned$`, theDefaultIntegerValueShouldBeReturned)
 	ctx.Step(`^the reason should indicate an error and the error code should indicate a type mismatch with "([^"]*)"$`, theReasonShouldIndicateAnErrorAndTheErrorCodeShouldIndicateATypeMismatchWith)
 }
 
