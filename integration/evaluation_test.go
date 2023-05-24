@@ -508,7 +508,7 @@ func aNonexistentStringFlagWithKeyIsEvaluatedWithDetailsAndADefaultValue(
 	}), nil
 }
 
-func thenTheDefaultStringValueShouldBeReturned(ctx context.Context) (context.Context, error) {
+func theDefaultStringValueShouldBeReturned(ctx context.Context) (context.Context, error) {
 	strNotFoundData, ok := ctx.Value(ctxStorageKey{}).(stringFlagNotFoundData)
 	if !ok {
 		return ctx, errors.New("no stringFlagNotFoundData found")
@@ -573,7 +573,7 @@ func aStringFlagWithKeyIsEvaluatedAsAnIntegerWithDetailsAndADefaultValue(
 	}), nil
 }
 
-func thenTheDefaultIntegerValueShouldBeReturned(ctx context.Context) (context.Context, error) {
+func theDefaultIntegerValueShouldBeReturned(ctx context.Context) (context.Context, error) {
 	typeErrData, ok := ctx.Value(ctxStorageKey{}).(typeErrorData)
 	if !ok {
 		return ctx, errors.New("no typeErrorData found")
@@ -652,11 +652,11 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the resolved flag value is "([^"]*)" when the context is empty$`, theResolvedFlagValueIsWhenTheContextIsEmpty)
 
 	ctx.Step(`^a non-existent string flag with key "([^"]*)" is evaluated with details and a default value "([^"]*)"$`, aNonexistentStringFlagWithKeyIsEvaluatedWithDetailsAndADefaultValue)
-	ctx.Step(`^then the default string value should be returned$`, thenTheDefaultStringValueShouldBeReturned)
+	ctx.Step(`^the default string value should be returned$`, theDefaultStringValueShouldBeReturned)
 	ctx.Step(`^the reason should indicate an error and the error code should indicate a missing flag with "([^"]*)"$`, theReasonShouldIndicateAnErrorAndTheErrorCodeShouldIndicateAMissingFlagWith)
 
 	ctx.Step(`^a string flag with key "([^"]*)" is evaluated as an integer, with details and a default value (\d+)$`, aStringFlagWithKeyIsEvaluatedAsAnIntegerWithDetailsAndADefaultValue)
-	ctx.Step(`^then the default integer value should be returned$`, thenTheDefaultIntegerValueShouldBeReturned)
+	ctx.Step(`^the default integer value should be returned$`, theDefaultIntegerValueShouldBeReturned)
 	ctx.Step(`^the reason should indicate an error and the error code should indicate a type mismatch with "([^"]*)"$`, theReasonShouldIndicateAnErrorAndTheErrorCodeShouldIndicateATypeMismatchWith)
 }
 

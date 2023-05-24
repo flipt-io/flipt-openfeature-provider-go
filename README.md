@@ -20,6 +20,20 @@ From the [OpenFeature Specification](https://docs.openfeature.dev/docs/specifica
 - Go 1.20+
 - A running instance of [Flipt](https://www.flipt.io/docs/installation)
 
+## Breaking Changes
+
+### v0.1.5
+
+Version [v0.1.5](https://github.com/flipt-io/flipt-openfeature-provider-go/releases/tag/v0.1.5) of this client introduced a change to use a newer version of the Flipt API which requires use of the `namespace` parameter. This is to support the new namespace functionality added to [Flipt v1.20.0](https://www.flipt.io/docs/reference/overview#v1-20-0).
+
+This client uses the `default` namespace by default. If you are using a different namespace, you will need to set the `namespace` parameter when creating the provider:
+
+```go
+provider := flipt.NewProvider(flipt.ForNamespace("my-namespace"))
+```
+
+:warning: If you are running an older version of Flipt server (< [v1.20.0](https://github.com/flipt-io/flipt/releases/tag/v1.20.0)), you should use a pre 0.1.5 version of this client.
+
 ## Usage
 
 ### Installation
