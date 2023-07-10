@@ -9,7 +9,7 @@ require (
 	go.flipt.io/flipt/rpc/flipt v1.22.0
 	go.flipt.io/flipt/sdk/go v0.3.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.42.0
-	google.golang.org/grpc v1.56.0
+	google.golang.org/grpc v1.56.2
 	google.golang.org/protobuf v1.31.0
 )
 
