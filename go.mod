@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/cucumber/godog v0.12.6
-	github.com/open-feature/go-sdk v1.5.0
+	github.com/open-feature/go-sdk v1.5.1
 	github.com/stretchr/testify v1.8.4
 	go.flipt.io/flipt/rpc/flipt v1.22.0
 	go.flipt.io/flipt/sdk/go v0.3.0
