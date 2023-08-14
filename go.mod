@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/cucumber/godog v0.12.6
-	github.com/open-feature/go-sdk v1.6.0
+	github.com/open-feature/go-sdk v1.7.0
 	github.com/stretchr/testify v1.8.4
 	go.flipt.io/flipt/rpc/flipt v1.24.0
 	go.flipt.io/flipt/sdk/go v0.4.0
@@ -37,10 +37,10 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
-	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
+	golang.org/x/exp v0.0.0-20230811145659-89c5cff77bcb // indirect
 	golang.org/x/net v0.12.0 // indirect
 	golang.org/x/sys v0.10.0 // indirect
-	golang.org/x/text v0.11.0 // indirect
+	golang.org/x/text v0.12.0 // indirect
 	google.golang.org/genproto v0.0.0-20230526161137-0005af68ea54 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20230525234035-dd9d682886f9 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230525234030-28d5490b6b19 // indirect
