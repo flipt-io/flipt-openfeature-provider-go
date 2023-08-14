@@ -104,8 +104,8 @@ github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcU
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 go.flipt.io/flipt/errors v1.19.3 h1:mgQrT3XdambAdu4UykYZ3gm1NG7Ilri5Gt+nLafbJHY=
 go.flipt.io/flipt/errors v1.19.3/go.mod h1:I2loVwHUoXy+yT7suRx7+pDiSyO1G7CHu6bby9DywyA=
-go.flipt.io/flipt/rpc/flipt v1.22.0 h1:SHXMNLKPEmghOV36zM6OHbwHsSdSOafvxPXnDYBZY9E=
-go.flipt.io/flipt/rpc/flipt v1.22.0/go.mod h1:H/P7nl/5lMo8uWiXyYGFX5LcOGL0ycWnlcLx3eaxJG4=
+go.flipt.io/flipt/rpc/flipt v1.24.0 h1:zu+8UyB1jWCqT+OIcQPHUpiUH3UPVe5AMcLtEtCfAJY=
+go.flipt.io/flipt/rpc/flipt v1.24.0/go.mod h1:H/P7nl/5lMo8uWiXyYGFX5LcOGL0ycWnlcLx3eaxJG4=
 go.flipt.io/flipt/sdk/go v0.3.0 h1:6n7HVsLw1ApOi5Kht1Q6Cr5GkOlIJH4uVrh30Qm/n6w=
 go.flipt.io/flipt/sdk/go v0.3.0/go.mod h1:4EVLw2+2SzqjqeyTx+NOz2E7a2Fs0+A+ZZKLHs6YvIY=
 go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.42.0 h1:ZOLJc06r4CB42laIXg/7udr0pbZyuAihN10A/XuiQRY=
