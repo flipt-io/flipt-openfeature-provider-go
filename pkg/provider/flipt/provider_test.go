@@ -9,7 +9,7 @@ import (
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	flipt "go.flipt.io/flipt/rpc/flipt"
+	"go.flipt.io/flipt/rpc/flipt/evaluation"
 )
 
 func TestMetadata(t *testing.T) {
@@ -22,30 +22,19 @@ func TestBooleanEvaluation(t *testing.T) {
 		name                  string
 		flagKey               string
 		defaultValue          bool
-		mockRespEvaluation    *flipt.EvaluationResponse
+		mockRespEvaluation    *evaluation.BooleanEvaluationResponse
 		mockRespEvaluationErr error
 		expected              of.BoolResolutionDetail
 	}{
 		{
-			name:         "true",
-			flagKey:      "boolean-true",
-			defaultValue: false,
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "boolean-true",
-				Match:   true,
-			},
-			expected: of.BoolResolutionDetail{Value: true, ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.DefaultReason}},
-		},
-		{
 			name:         "false",
 			flagKey:      "boolean-false",
 			defaultValue: true,
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "boolean-true",
-				Match:   false,
-				Reason:  flipt.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON,
+			mockRespEvaluation: &evaluation.BooleanEvaluationResponse{
+				Enabled: false,
+				Reason:  evaluation.EvaluationReason_MATCH_EVALUATION_REASON,
 			},
-			expected: of.BoolResolutionDetail{Value: true, ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.DisabledReason}},
+			expected: of.BoolResolutionDetail{Value: false, ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.TargetingMatchReason}},
 		},
 		{
 			name:                  "resolution error",
@@ -60,68 +49,12 @@ func TestBooleanEvaluation(t *testing.T) {
 				},
 			},
 		},
-		{
-			name:                  "error",
-			flagKey:               "boolean-error",
-			defaultValue:          false,
-			mockRespEvaluationErr: errors.New("boom"),
-			expected: of.BoolResolutionDetail{
-				Value: false,
-				ProviderResolutionDetail: of.ProviderResolutionDetail{
-					Reason:          of.DefaultReason,
-					ResolutionError: of.NewGeneralResolutionError("boom"),
-				},
-			},
-		},
-		{
-			name:         "no match",
-			flagKey:      "boolean-no-match",
-			defaultValue: false,
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "boolean-no-match",
-				Match:   false,
-			},
-			expected: of.BoolResolutionDetail{Value: false, ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.DefaultReason}},
-		},
-		{
-			name:         "non bool",
-			flagKey:      "boolean-no-bool",
-			defaultValue: false,
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "boolean-no-bool",
-				Match:   true,
-				Value:   "abcd",
-			},
-			expected: of.BoolResolutionDetail{
-				Value: false,
-				ProviderResolutionDetail: of.ProviderResolutionDetail{
-					Reason:          of.DefaultReason,
-					ResolutionError: of.NewTypeMismatchResolutionError("value is not a boolean"),
-				},
-			},
-		},
-		{
-			name:         "match",
-			flagKey:      "boolean-match",
-			defaultValue: false,
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "boolean-match",
-				Match:   true,
-				Value:   "false",
-			},
-			expected: of.BoolResolutionDetail{
-				Value: false,
-				ProviderResolutionDetail: of.ProviderResolutionDetail{
-					Reason: of.TargetingMatchReason,
-				},
-			},
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockSvc := newMockService(t)
-			mockSvc.On("Evaluate", mock.Anything, "flipt", tt.flagKey, mock.Anything).Return(tt.mockRespEvaluation, tt.mockRespEvaluationErr).Maybe()
+			mockSvc.On("Boolean", mock.Anything, "flipt", tt.flagKey, mock.Anything).Return(tt.mockRespEvaluation, tt.mockRespEvaluationErr).Maybe()
 
 			p := NewProvider(WithService(mockSvc), ForNamespace("flipt"))
 
@@ -137,7 +70,7 @@ func TestStringEvaluation(t *testing.T) {
 		name                  string
 		flagKey               string
 		defaultValue          string
-		mockRespEvaluation    *flipt.EvaluationResponse
+		mockRespEvaluation    *evaluation.VariantEvaluationResponse
 		mockRespEvaluationErr error
 		expected              of.StringResolutionDetail
 	}{
@@ -145,10 +78,9 @@ func TestStringEvaluation(t *testing.T) {
 			name:         "flag enabled",
 			flagKey:      "string-true",
 			defaultValue: "false",
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "string-true",
-				Match:   true,
-				Value:   "true",
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match:      true,
+				VariantKey: "true",
 			},
 			expected: of.StringResolutionDetail{Value: "true", ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.TargetingMatchReason}},
 		},
@@ -156,10 +88,9 @@ func TestStringEvaluation(t *testing.T) {
 			name:         "flag disabled",
 			flagKey:      "string-true",
 			defaultValue: "false",
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "string-true",
-				Match:   false,
-				Reason:  flipt.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON,
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match:  false,
+				Reason: evaluation.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON,
 			},
 			expected: of.StringResolutionDetail{Value: "false", ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.DisabledReason}},
 		},
@@ -194,9 +125,8 @@ func TestStringEvaluation(t *testing.T) {
 			flagKey: "string-no-match",
 
 			defaultValue: "default",
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "string-no-match",
-				Match:   false,
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match: false,
 			},
 			expected: of.StringResolutionDetail{Value: "default", ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.DefaultReason}},
 		},
@@ -205,10 +135,9 @@ func TestStringEvaluation(t *testing.T) {
 			flagKey: "string-match",
 
 			defaultValue: "default",
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "string-match",
-				Match:   true,
-				Value:   "abc",
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match:      true,
+				VariantKey: "abc",
 			},
 			expected: of.StringResolutionDetail{
 				Value: "abc",
@@ -221,10 +150,9 @@ func TestStringEvaluation(t *testing.T) {
 			name:         "match",
 			flagKey:      "string-match",
 			defaultValue: "default",
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "string-match",
-				Match:   true,
-				Value:   "abc",
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match:      true,
+				VariantKey: "abc",
 			},
 			expected: of.StringResolutionDetail{
 				Value: "abc",
@@ -254,7 +182,7 @@ func TestFloatEvaluation(t *testing.T) {
 		name                  string
 		flagKey               string
 		defaultValue          float64
-		mockRespEvaluation    *flipt.EvaluationResponse
+		mockRespEvaluation    *evaluation.VariantEvaluationResponse
 		mockRespEvaluationErr error
 		expected              of.FloatResolutionDetail
 	}{
@@ -263,10 +191,9 @@ func TestFloatEvaluation(t *testing.T) {
 			flagKey: "float-one",
 
 			defaultValue: 1.0,
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "float-one",
-				Match:   true,
-				Value:   "1.0",
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match:      true,
+				VariantKey: "1.0",
 			},
 			expected: of.FloatResolutionDetail{Value: 1.0, ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.TargetingMatchReason}},
 		},
@@ -275,10 +202,9 @@ func TestFloatEvaluation(t *testing.T) {
 			flagKey: "float-zero",
 
 			defaultValue: 0.0,
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "float-zero",
-				Match:   false,
-				Reason:  flipt.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON,
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match:  false,
+				Reason: evaluation.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON,
 			},
 			expected: of.FloatResolutionDetail{Value: 0.0, ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.DisabledReason}},
 		},
@@ -300,10 +226,9 @@ func TestFloatEvaluation(t *testing.T) {
 			flagKey: "float-parse-error",
 
 			defaultValue: 1.0,
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "float-parse-error",
-				Match:   true,
-				Value:   "not-a-float",
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match:      true,
+				VariantKey: "not-a-float",
 			},
 			expected: of.FloatResolutionDetail{
 				Value: 1.0,
@@ -331,9 +256,8 @@ func TestFloatEvaluation(t *testing.T) {
 			flagKey: "float-no-match",
 
 			defaultValue: 1.0,
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "float-no-match",
-				Match:   false,
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match: false,
 			},
 			expected: of.FloatResolutionDetail{Value: 1.0, ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.DefaultReason}},
 		},
@@ -342,10 +266,9 @@ func TestFloatEvaluation(t *testing.T) {
 			flagKey: "float-match",
 
 			defaultValue: 1.0,
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "float-match",
-				Match:   true,
-				Value:   "2.0",
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match:      true,
+				VariantKey: "2.0",
 			},
 			expected: of.FloatResolutionDetail{
 				Value: 2.0,
@@ -375,7 +298,7 @@ func TestIntEvaluation(t *testing.T) {
 		name                  string
 		flagKey               string
 		defaultValue          int64
-		mockRespEvaluation    *flipt.EvaluationResponse
+		mockRespEvaluation    *evaluation.VariantEvaluationResponse
 		mockRespEvaluationErr error
 		expected              of.IntResolutionDetail
 	}{
@@ -384,10 +307,9 @@ func TestIntEvaluation(t *testing.T) {
 			flagKey: "int-one",
 
 			defaultValue: 1,
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "int-one",
-				Match:   true,
-				Value:   "1",
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match:      true,
+				VariantKey: "1",
 			},
 			expected: of.IntResolutionDetail{Value: 1, ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.TargetingMatchReason}},
 		},
@@ -396,10 +318,9 @@ func TestIntEvaluation(t *testing.T) {
 			flagKey: "int-zero",
 
 			defaultValue: 0,
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "int-zero",
-				Match:   false,
-				Reason:  flipt.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON,
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match:  false,
+				Reason: evaluation.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON,
 			},
 			expected: of.IntResolutionDetail{Value: 0, ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.DisabledReason}},
 		},
@@ -421,10 +342,9 @@ func TestIntEvaluation(t *testing.T) {
 			flagKey: "int-parse-error",
 
 			defaultValue: 1,
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "int-parse-error",
-				Match:   true,
-				Value:   "not-an-int",
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match:      true,
+				VariantKey: "not-an-int",
 			},
 			expected: of.IntResolutionDetail{
 				Value: 1,
@@ -452,9 +372,8 @@ func TestIntEvaluation(t *testing.T) {
 			flagKey: "int-no-match",
 
 			defaultValue: 1,
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "int-no-match",
-				Match:   false,
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match: false,
 			},
 			expected: of.IntResolutionDetail{Value: 1, ProviderResolutionDetail: of.ProviderResolutionDetail{Reason: of.DefaultReason}},
 		},
@@ -463,10 +382,9 @@ func TestIntEvaluation(t *testing.T) {
 			flagKey: "int-match",
 
 			defaultValue: 1,
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "int-match",
-				Match:   true,
-				Value:   "2",
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match:      true,
+				VariantKey: "2",
 			},
 			expected: of.IntResolutionDetail{
 				Value: 2,
@@ -479,10 +397,9 @@ func TestIntEvaluation(t *testing.T) {
 			name:         "match",
 			flagKey:      "int-match",
 			defaultValue: 1,
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "int-match",
-				Match:   true,
-				Value:   "2",
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match:      true,
+				VariantKey: "2",
 			},
 			expected: of.IntResolutionDetail{
 				Value: 2,
@@ -519,7 +436,7 @@ func TestObjectEvaluation(t *testing.T) {
 		name                  string
 		flagKey               string
 		defaultValue          map[string]interface{}
-		mockRespEvaluation    *flipt.EvaluationResponse
+		mockRespEvaluation    *evaluation.VariantEvaluationResponse
 		mockRespEvaluationErr error
 		expected              of.InterfaceResolutionDetail
 	}{
@@ -530,10 +447,9 @@ func TestObjectEvaluation(t *testing.T) {
 			defaultValue: map[string]interface{}{
 				"baz": "qux",
 			},
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey:    "obj-enabled",
-				Match:      true,
-				Attachment: attachmentJSON,
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match:             true,
+				VariantAttachment: attachmentJSON,
 			},
 			expected: of.InterfaceResolutionDetail{
 				Value:                    attachment,
@@ -547,10 +463,9 @@ func TestObjectEvaluation(t *testing.T) {
 			defaultValue: map[string]interface{}{
 				"baz": "qux",
 			},
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "obj-disabled",
-				Match:   false,
-				Reason:  flipt.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON,
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match:  false,
+				Reason: evaluation.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON,
 			},
 			expected: of.InterfaceResolutionDetail{
 				Value: map[string]interface{}{
@@ -583,10 +498,9 @@ func TestObjectEvaluation(t *testing.T) {
 			defaultValue: map[string]interface{}{
 				"baz": "qux",
 			},
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey:    "obj-unmarshal-error",
-				Match:      true,
-				Attachment: "x",
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match:             true,
+				VariantAttachment: "x",
 			},
 			expected: of.InterfaceResolutionDetail{
 				Value: map[string]interface{}{
@@ -623,9 +537,8 @@ func TestObjectEvaluation(t *testing.T) {
 			defaultValue: map[string]interface{}{
 				"baz": "qux",
 			},
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "obj-no-match",
-				Match:   false,
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match: false,
 			},
 			expected: of.InterfaceResolutionDetail{
 				Value: map[string]interface{}{
@@ -641,11 +554,10 @@ func TestObjectEvaluation(t *testing.T) {
 			defaultValue: map[string]interface{}{
 				"baz": "qux",
 			},
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey:    "obj-match",
-				Match:      true,
-				Value:      "2",
-				Attachment: "{\"foo\": \"bar\"}",
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match:             true,
+				VariantKey:        "2",
+				VariantAttachment: "{\"foo\": \"bar\"}",
 			},
 			expected: of.InterfaceResolutionDetail{
 				Value: map[string]interface{}{
@@ -663,10 +575,9 @@ func TestObjectEvaluation(t *testing.T) {
 			defaultValue: map[string]interface{}{
 				"baz": "qux",
 			},
-			mockRespEvaluation: &flipt.EvaluationResponse{
-				FlagKey: "obj-match",
-				Match:   true,
-				Value:   "2",
+			mockRespEvaluation: &evaluation.VariantEvaluationResponse{
+				Match:      true,
+				VariantKey: "2",
 			},
 			expected: of.InterfaceResolutionDetail{
 				Value: map[string]interface{}{
