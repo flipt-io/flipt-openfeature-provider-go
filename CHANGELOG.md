@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/flipt-io/flipt-openfeature-provider-go/compare/v0.1.5...v0.2.0) (2023-08-17)
+
+
+### Miscellaneous Chores
+
+* release 0.2.0 ([ca791ce](https://github.com/flipt-io/flipt-openfeature-provider-go/commit/ca791ce42541a1484003818ded77017eed1ef8f9))
+
 ## [0.1.5](https://github.com/flipt-io/flipt-openfeature-provider-go/compare/v0.1.4...v0.1.5) (2023-05-24)
 
 ### Features
