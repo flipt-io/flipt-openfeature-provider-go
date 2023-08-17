@@ -10,6 +10,7 @@ import (
 
 	offlipt "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt"
 	flipt "go.flipt.io/flipt/rpc/flipt"
+	"go.flipt.io/flipt/rpc/flipt/evaluation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -109,19 +110,18 @@ func TestGetFlag(t *testing.T) {
 	}
 }
 
-func TestEvaluate(t *testing.T) {
+func TestEvaluate_NonBoolean(t *testing.T) {
 	tests := []struct {
 		name        string
 		err         error
 		expectedErr error
-		expected    *flipt.EvaluationResponse
+		expected    *evaluation.VariantEvaluationResponse
 	}{
 		{
 			name: "success",
-			expected: &flipt.EvaluationResponse{
-				FlagKey:    "foo",
-				Match:      true,
-				SegmentKey: "foo-segment",
+			expected: &evaluation.VariantEvaluationResponse{
+				Match:       true,
+				SegmentKeys: []string{"foo-segment"},
 			},
 		},
 		{
@@ -140,7 +140,7 @@ func TestEvaluate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient := offlipt.NewMockClient(t)
 
-			mockClient.EXPECT().Evaluate(mock.Anything, &flipt.EvaluationRequest{
+			mockClient.EXPECT().Variant(mock.Anything, &evaluation.EvaluationRequest{
 				FlagKey:      "foo",
 				NamespaceKey: "foo-namespace",
 				RequestId:    reqID,
@@ -165,12 +165,43 @@ func TestEvaluate(t *testing.T) {
 				assert.ErrorContains(t, err, tt.expectedErr.Error())
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tt.expected.FlagKey, actual.FlagKey)
 				assert.Equal(t, tt.expected.Match, actual.Match)
-				assert.Equal(t, tt.expected.SegmentKey, actual.SegmentKey)
+				assert.Equal(t, tt.expected.SegmentKeys, actual.SegmentKeys)
 			}
 		})
 	}
+}
+
+func TestEvaluate_Boolean(t *testing.T) {
+	ber := &evaluation.BooleanEvaluationResponse{
+		Enabled: false,
+	}
+
+	mockClient := offlipt.NewMockClient(t)
+
+	mockClient.EXPECT().Boolean(mock.Anything, &evaluation.EvaluationRequest{
+		FlagKey:      "foo",
+		NamespaceKey: "foo-namespace",
+		RequestId:    reqID,
+		EntityId:     entityID,
+		Context: map[string]string{
+			"requestID":    reqID,
+			"targetingKey": entityID,
+		},
+	}).Return(ber, nil)
+
+	s := &Service{
+		client: mockClient,
+	}
+
+	evalCtx := map[string]interface{}{
+		"requestID":     reqID,
+		of.TargetingKey: entityID,
+	}
+
+	actual, err := s.Boolean(context.Background(), "foo-namespace", "foo", evalCtx)
+	assert.NoError(t, err)
+	assert.False(t, actual.Enabled, "match value should be false")
 }
 
 func TestEvaluateInvalidContext(t *testing.T) {

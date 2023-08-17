@@ -34,6 +34,11 @@ provider := flipt.NewProvider(flipt.ForNamespace("my-namespace"))
 
 :warning: If you are running an older version of Flipt server (< [v1.20.0](https://github.com/flipt-io/flipt/releases/tag/v1.20.0)), you should use a pre 0.1.5 version of this client.
 
+### v0.2.0
+Version [v0.2.0](https://github.com/flipt-io/flipt-openfeature-provider-go/releases/tag/v0.2.0) of this client correlates Boolean flag evaluations to [Boolean flag types](https://www.flipt.io/docs/concepts#boolean-flags) on the flipt server. Upgrading to this version will require you to convert your flags that were using Boolean evaluation to the Boolean flag type on the Flipt server.
+
+:warning: Boolean flag evaluations were introduced in Flipt server (>= [v.1.24.0](https://github.com/flipt-io/flipt/releases/tag/v1.24.0)).
+
 ## Usage
 
 ### Installation

@@ -14,6 +14,7 @@ import (
 	offlipt "go.flipt.io/flipt-openfeature-provider/pkg/service/flipt"
 	"go.flipt.io/flipt-openfeature-provider/pkg/service/flipt/util"
 	flipt "go.flipt.io/flipt/rpc/flipt"
+	"go.flipt.io/flipt/rpc/flipt/evaluation"
 	sdk "go.flipt.io/flipt/sdk/go"
 	sdkgrpc "go.flipt.io/flipt/sdk/go/grpc"
 	sdkhttp "go.flipt.io/flipt/sdk/go/http"
@@ -123,6 +124,11 @@ func (s *Service) connect() (*grpc.ClientConn, error) {
 }
 
 func (s *Service) instance() (offlipt.Client, error) {
+	type fclient struct {
+		*sdk.Flipt
+		*sdk.Evaluation
+	}
+
 	if s.client != nil {
 		return s.client, nil
 	}
@@ -141,8 +147,12 @@ func (s *Service) instance() (offlipt.Client, error) {
 			opts = append(opts, sdk.WithClientTokenProvider(s.tokenProvider))
 		}
 
+		hclient := sdk.New(sdkhttp.NewTransport(s.address), opts...)
 		if u.Scheme == "https" || u.Scheme == "http" {
-			s.client = sdk.New(sdkhttp.NewTransport(s.address), opts...).Flipt()
+			s.client = &fclient{
+				hclient.Flipt(),
+				hclient.Evaluation(),
+			}
 
 			return
 		}
@@ -152,7 +162,11 @@ func (s *Service) instance() (offlipt.Client, error) {
 			err = fmt.Errorf("connecting %w", cerr)
 		}
 
-		s.client = sdk.New(sdkgrpc.NewTransport(conn), opts...).Flipt()
+		gclient := sdk.New(sdkgrpc.NewTransport(conn), opts...)
+		s.client = &fclient{
+			gclient.Flipt(),
+			gclient.Evaluation(),
+		}
 	})
 
 	return s.client, err
@@ -176,8 +190,8 @@ func (s *Service) GetFlag(ctx context.Context, namespaceKey, flagKey string) (*f
 	return flag, nil
 }
 
-// Evaluate evaluates a flag with the given context and namespace/flag key pair.
-func (s *Service) Evaluate(ctx context.Context, namespaceKey, flagKey string, evalCtx map[string]interface{}) (*flipt.EvaluationResponse, error) {
+// Boolean evaluates a boolean type flag with the given context and namespace/flag key pair.
+func (s *Service) Boolean(ctx context.Context, namespaceKey, flagKey string, evalCtx map[string]interface{}) (*evaluation.BooleanEvaluationResponse, error) {
 	if evalCtx == nil {
 		return nil, of.NewInvalidContextResolutionError("evalCtx is nil")
 	}
@@ -194,7 +208,33 @@ func (s *Service) Evaluate(ctx context.Context, namespaceKey, flagKey string, ev
 		return nil, err
 	}
 
-	resp, err := conn.Evaluate(ctx, &flipt.EvaluationRequest{FlagKey: flagKey, NamespaceKey: namespaceKey, EntityId: targetingKey, RequestId: ec[requestID], Context: ec})
+	ber, err := conn.Boolean(ctx, &evaluation.EvaluationRequest{FlagKey: flagKey, NamespaceKey: namespaceKey, EntityId: targetingKey, RequestId: ec[requestID], Context: ec})
+	if err != nil {
+		return nil, util.GRPCToOpenFeatureError(err)
+	}
+
+	return ber, nil
+}
+
+// Evaluate evaluates a variant type flag with the given context and namespace/flag key pair.
+func (s *Service) Evaluate(ctx context.Context, namespaceKey, flagKey string, evalCtx map[string]interface{}) (*evaluation.VariantEvaluationResponse, error) {
+	if evalCtx == nil {
+		return nil, of.NewInvalidContextResolutionError("evalCtx is nil")
+	}
+
+	ec := convertMapInterface(evalCtx)
+
+	targetingKey := ec[of.TargetingKey]
+	if targetingKey == "" {
+		return nil, of.NewTargetingKeyMissingResolutionError("targetingKey is missing")
+	}
+
+	conn, err := s.instance()
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := conn.Variant(ctx, &evaluation.EvaluationRequest{FlagKey: flagKey, NamespaceKey: namespaceKey, EntityId: targetingKey, RequestId: ec[requestID], Context: ec})
 	if err != nil {
 		return nil, util.GRPCToOpenFeatureError(err)
 	}
