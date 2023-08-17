@@ -9,6 +9,7 @@ import (
 	of "github.com/open-feature/go-sdk/pkg/openfeature"
 	"go.flipt.io/flipt-openfeature-provider/pkg/service/flipt/transport"
 	flipt "go.flipt.io/flipt/rpc/flipt"
+	"go.flipt.io/flipt/rpc/flipt/evaluation"
 	sdk "go.flipt.io/flipt/sdk/go"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -96,7 +97,8 @@ func NewProvider(opts ...Option) *Provider {
 //go:generate mockery --name=Service --structname=mockService --case=underscore --output=. --outpkg=flipt --filename=provider_support.go --testonly --with-expecter --disable-version-string
 type Service interface {
 	GetFlag(ctx context.Context, namespaceKey, flagKey string) (*flipt.Flag, error)
-	Evaluate(ctx context.Context, namespaceKey, flagKey string, evalCtx map[string]interface{}) (*flipt.EvaluationResponse, error)
+	Evaluate(ctx context.Context, namespaceKey, flagKey string, evalCtx map[string]interface{}) (*evaluation.VariantEvaluationResponse, error)
+	Boolean(ctx context.Context, namespaceKey, flagKey string, evalCtx map[string]interface{}) (*evaluation.BooleanEvaluationResponse, error)
 }
 
 // Provider implements the FeatureProvider interface and provides functions for evaluating flags with Flipt.
@@ -112,7 +114,7 @@ func (p Provider) Metadata() of.Metadata {
 
 // BooleanEvaluation returns a boolean flag.
 func (p Provider) BooleanEvaluation(ctx context.Context, flag string, defaultValue bool, evalCtx of.FlattenedContext) of.BoolResolutionDetail {
-	resp, err := p.svc.Evaluate(ctx, p.config.Namespace, flag, evalCtx)
+	resp, err := p.svc.Boolean(ctx, p.config.Namespace, flag, evalCtx)
 	if err != nil {
 		var (
 			rerr   of.ResolutionError
@@ -135,48 +137,10 @@ func (p Provider) BooleanEvaluation(ctx context.Context, flag string, defaultVal
 		return detail
 	}
 
-	if resp.Reason == flipt.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON {
-		return of.BoolResolutionDetail{
-			Value: defaultValue,
-			ProviderResolutionDetail: of.ProviderResolutionDetail{
-				Reason: of.DisabledReason,
-			},
-		}
-	}
-
-	if !resp.Match {
-		return of.BoolResolutionDetail{
-			Value: defaultValue,
-			ProviderResolutionDetail: of.ProviderResolutionDetail{
-				Reason: of.DefaultReason,
-			},
-		}
-	}
-
-	if resp.Value != "" {
-		bv, err := strconv.ParseBool(resp.Value)
-		if err != nil {
-			return of.BoolResolutionDetail{
-				Value: defaultValue,
-				ProviderResolutionDetail: of.ProviderResolutionDetail{
-					ResolutionError: of.NewTypeMismatchResolutionError("value is not a boolean"),
-					Reason:          of.DefaultReason,
-				},
-			}
-		}
-
-		return of.BoolResolutionDetail{
-			Value: bv,
-			ProviderResolutionDetail: of.ProviderResolutionDetail{
-				Reason: of.TargetingMatchReason,
-			},
-		}
-	}
-
 	return of.BoolResolutionDetail{
-		Value: true,
+		Value: resp.Enabled,
 		ProviderResolutionDetail: of.ProviderResolutionDetail{
-			Reason: of.DefaultReason,
+			Reason: of.TargetingMatchReason,
 		},
 	}
 }
@@ -206,7 +170,7 @@ func (p Provider) StringEvaluation(ctx context.Context, flag string, defaultValu
 		return detail
 	}
 
-	if resp.Reason == flipt.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON {
+	if resp.Reason == evaluation.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON {
 		return of.StringResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: of.ProviderResolutionDetail{
@@ -225,7 +189,7 @@ func (p Provider) StringEvaluation(ctx context.Context, flag string, defaultValu
 	}
 
 	return of.StringResolutionDetail{
-		Value: resp.Value,
+		Value: resp.VariantKey,
 		ProviderResolutionDetail: of.ProviderResolutionDetail{
 			Reason: of.TargetingMatchReason,
 		},
@@ -257,7 +221,7 @@ func (p Provider) FloatEvaluation(ctx context.Context, flag string, defaultValue
 		return detail
 	}
 
-	if resp.Reason == flipt.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON {
+	if resp.Reason == evaluation.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON {
 		return of.FloatResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: of.ProviderResolutionDetail{
@@ -275,7 +239,7 @@ func (p Provider) FloatEvaluation(ctx context.Context, flag string, defaultValue
 		}
 	}
 
-	fv, err := strconv.ParseFloat(resp.Value, 64)
+	fv, err := strconv.ParseFloat(resp.VariantKey, 64)
 	if err != nil {
 		return of.FloatResolutionDetail{
 			Value: defaultValue,
@@ -319,7 +283,7 @@ func (p Provider) IntEvaluation(ctx context.Context, flag string, defaultValue i
 		return detail
 	}
 
-	if resp.Reason == flipt.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON {
+	if resp.Reason == evaluation.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON {
 		return of.IntResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: of.ProviderResolutionDetail{
@@ -337,7 +301,7 @@ func (p Provider) IntEvaluation(ctx context.Context, flag string, defaultValue i
 		}
 	}
 
-	iv, err := strconv.ParseInt(resp.Value, 10, 64)
+	iv, err := strconv.ParseInt(resp.VariantKey, 10, 64)
 	if err != nil {
 		return of.IntResolutionDetail{
 			Value: defaultValue,
@@ -381,7 +345,7 @@ func (p Provider) ObjectEvaluation(ctx context.Context, flag string, defaultValu
 		return detail
 	}
 
-	if resp.Reason == flipt.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON {
+	if resp.Reason == evaluation.EvaluationReason_FLAG_DISABLED_EVALUATION_REASON {
 		return of.InterfaceResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: of.ProviderResolutionDetail{
@@ -399,22 +363,22 @@ func (p Provider) ObjectEvaluation(ctx context.Context, flag string, defaultValu
 		}
 	}
 
-	if resp.Attachment == "" {
+	if resp.VariantAttachment == "" {
 		return of.InterfaceResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: of.ProviderResolutionDetail{
 				Reason:  of.DefaultReason,
-				Variant: resp.Value,
+				Variant: resp.VariantKey,
 			},
 		}
 	}
 
 	out := new(structpb.Struct)
-	if err := protojson.Unmarshal([]byte(resp.Attachment), out); err != nil {
+	if err := protojson.Unmarshal([]byte(resp.VariantAttachment), out); err != nil {
 		return of.InterfaceResolutionDetail{
 			Value: defaultValue,
 			ProviderResolutionDetail: of.ProviderResolutionDetail{
-				ResolutionError: of.NewTypeMismatchResolutionError(fmt.Sprintf("value is not an object: %q", resp.Attachment)),
+				ResolutionError: of.NewTypeMismatchResolutionError(fmt.Sprintf("value is not an object: %q", resp.VariantAttachment)),
 				Reason:          of.ErrorReason,
 			},
 		}
@@ -424,7 +388,7 @@ func (p Provider) ObjectEvaluation(ctx context.Context, flag string, defaultValu
 		Value: out.AsMap(),
 		ProviderResolutionDetail: of.ProviderResolutionDetail{
 			Reason:  of.TargetingMatchReason,
-			Variant: resp.Value,
+			Variant: resp.VariantKey,
 		},
 	}
 }

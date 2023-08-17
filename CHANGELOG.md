@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.2.0](https://github.com/flipt-io/flipt-openfeature-provider-go/compare/v0.1.5...v0.2.0) (2023-08-17)
+
+### Changed (Breaking)
+
+* correlates Boolean flag evaluations to Boolean flag types on the Flipt server. Upgrading to this version will require you to convert your flags that were using Boolean evaluation to the Boolean flag type on the Flipt server.
+
+## [0.1.5](https://github.com/flipt-io/flipt-openfeature-provider-go/compare/v0.1.4...v0.1.5) (2023-05-24)
+
+### Features
+
+* remove transport details from user and determine the transport under the hood ([a8a04a9](https://github.com/flipt-io/flipt-openfeature-provider-go/commit/a8a04a9fff502089a310ad6fce11ef777a3d6af5))
+* use flipt sdk for openfeature interactions, and include new namespace client ([ce1fe31](https://github.com/flipt-io/flipt-openfeature-provider-go/commit/ce1fe31ae0b0ac9b37ffdde32a9ceb79c9d0d2c6))
+
+### Bug Fixes
+
+* remove getFlag to subtract extra network hop ([9f6b53d](https://github.com/flipt-io/flipt-openfeature-provider-go/commit/9f6b53d0aaf408d5b00146379b79101d2402155d))
+
+## [0.1.4](https://github.com/flipt-io/flipt-openfeature-provider-go/compare/v0.1.3...v0.1.4) (2022-11-02)
+
+### Miscellaneous Chores
+
+* release 0.2.0 ([ca791ce](https://github.com/flipt-io/flipt-openfeature-provider-go/commit/ca791ce42541a1484003818ded77017eed1ef8f9))
+
 ## [0.1.5](https://github.com/flipt-io/flipt-openfeature-provider-go/compare/v0.1.4...v0.1.5) (2023-05-24)
 
 ### Features
