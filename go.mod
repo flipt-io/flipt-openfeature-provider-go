@@ -6,7 +6,7 @@ require (
 	github.com/cucumber/godog v0.13.0
 	github.com/open-feature/go-sdk v1.8.0
 	github.com/stretchr/testify v1.8.4
-	go.flipt.io/flipt/rpc/flipt v1.25.0
+	go.flipt.io/flipt/rpc/flipt v1.28.0
 	go.flipt.io/flipt/sdk/go v0.5.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.45.0
 	google.golang.org/grpc v1.58.2
