@@ -1,8 +1,16 @@
 # Flipt OpenFeature Provider (Go)
 
+## Moved :warning:
+
+We have moved the Flipt OpenFeature Provider (Go) to the official [OpenFeature Go Contrib repository](https://github.com/open-feature/go-sdk-contrib). You can find the latest version of the Flipt OpenFeature Provider (Go) at: <https://github.com/open-feature/go-sdk-contrib/tree/main/providers/flipt>.
+
+We will continue to maintain the Flipt OpenFeature Provider (Go) in the OpenFeature Go Contrib repository. Please open any issues or pull requests there.
+
+In the future, we will be archiving this repository and eventually removing it.
+
+## Overview
+
 [![CI](https://github.com/flipt-io/openfeature-provider-go/actions/workflows/ci.yml/badge.svg)](https://github.com/flipt-io/openfeature-provider-go/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/flipt-io/openfeature-provider-go/branch/main/graph/badge.svg?token=0X8OWMEV16)](https://codecov.io/gh/flipt-io/openfeature-provider-go)
-![status](https://img.shields.io/badge/status-experimental-orange.svg)
 ![license](https://img.shields.io/github/license/flipt-io/flipt-openfeature-provider-go)
 [![Go Reference](https://pkg.go.dev/badge/go.flipt.io/flipt-openfeature-provider.svg)](https://pkg.go.dev/go.flipt.io/flipt-openfeature-provider)
 
